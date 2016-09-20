@@ -2,9 +2,9 @@
   "name": "speakout-node-client",
   "version": "1.0.0",
   "description": "server logic for speakout",
-  "priavte": true,
+  "private": true,
   "scripts": {
-    "start": "node index.js",
+    "start": "node app.js",
     "deploy": "gcloud app deploy"
   },
   "engines": {
@@ -17,6 +17,8 @@
     "express": "^4.13.4",
     "fcm-push": "^1.0.7",
     "firebase": "^3.2.1",
-    "twilio": "^2.9.2"
+    "twilio": "^2.9.2",
+    "sunlight-congress-api": "^0.3.1",
+    "request": "^2.75.0"
   }
 }
