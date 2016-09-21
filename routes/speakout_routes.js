@@ -10,11 +10,31 @@ exports.updateUserInfo = function(req, res){
     return res.send({success:true, message:"default message"});
 };
 
-exports.loadFeaturedCampaign = function(req, res){
+exports.loadLatestActiveCampaignForUser = function(req, res){
     var requestParameters = req.body;
     var uid = requestParameters.uid;
-    
-    return res.send({success:true, message:"default message"});
+    var userInfoRef = db.ref("userInfo/" + uid);
+    userInfoRef.on("value", function(snapshot) {
+        var districtString = snapshot.val()["currentDistrictState"] + "-" + snapshot.val()["currentDistrictNumber"];
+        console.log("user district string is:" + districtString);
+        var campaignRef = db.ref("campaign");
+        campaignRef.orderByChild("active").equalTo(true).once("value", function(snapshot){
+            console.log("snapshot has children of " + snapshot.numChildren());
+            if (snapshot.numChildren() > 0) {
+                snapshot.forEach(function(campaign) {
+                    for(var district in campaign.val()["districts"]){
+                        console.log("campaign district string is:" + district);
+                        if (district == districtString){
+                            console.log(campaign.val());
+                            return res.send({success:true, campaign:campaign.val()});     
+                        }
+                    }
+                });
+            }
+    });
+    }, function (errorObject) {
+    console.log("The read failed: " + errorObject.code);
+    });
 };
 
 exports.loadStoriesForCampaign = function(req, res){
