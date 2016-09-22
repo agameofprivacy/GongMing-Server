@@ -3,7 +3,10 @@ global.__base = __dirname + '/';
 
 var sunlightAPIKey = "5503cb1366e0492a9be0c6e496cff1b8";
 var request = require('request');
-
+var moment = require('moment');
+exports.sunlightAPIKey = sunlightAPIKey;
+exports.moment = moment;
+exports.request = request;
 
 var firebase = require('firebase');
 exports.firebase = firebase;
@@ -12,7 +15,6 @@ firebase.initializeApp({
   databaseURL: 'https://speakout-9d07b.firebaseio.com',
   serviceAccount: './speakoutServiceAccount.json'
 });
-
 
 var db = firebase.database();
 exports.db = db;
@@ -32,7 +34,7 @@ userInfoRef.on("child_changed", function(snapshot) {
     }
   });
 }, function (errorObject) {
-  console.log("The read failed: " + errorObject.code);
+   console.log("The read failed: " + errorObject.code);
 });
 
 // Code to add more campaign
@@ -74,17 +76,18 @@ app.post('/loadStoriesForCampaign', speakoutRoutes.loadStoriesForCampaign);
 app.post('/likeStory', speakoutRoutes.likeStory);
 app.post('/reportStory', speakoutRoutes.reportStory);
 app.post('/recordSpeakout', speakoutRoutes.recordSpeakout);
-app.post('/submitTake', speakoutRoutes.submitTake);
+app.post('/submitStory', speakoutRoutes.submitStory);
 app.post('/loadCandidatesForEquality', speakoutRoutes.loadCandidatesForEquality);
 app.post('/loadIssues', speakoutRoutes.loadIssues);
-
+app.post('/updateStoryImageURLForStory', speakoutRoutes.updateStoryImageURLForStory);
+app.post('/updateStoryAudioURLForStory', speakoutRoutes.updateStoryAudioURLForStory);
+app.post('/getLegislatorInfoAndContactForUser', speakoutRoutes.getLegislatorInfoAndContactForUser);
 var server = app.listen(process.env.PORT || '8080', function () {
   console.log('App listening on port %s', server.address().port);
   console.log('Press Ctrl+C to quit.');
 });
 
 // listen for change in userInfo > uid > currentLatitude, then update congressional district info for said userInfo
-
 
 function getDistrictWithLatLong(lat, long, callback){
     var url = "http://congress.api.sunlightfoundation.com/districts/locate?apikey=" + sunlightAPIKey;
@@ -101,3 +104,7 @@ function getDistrictWithLatLong(lat, long, callback){
     });
 
 };
+
+function getRandomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
