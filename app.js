@@ -72,7 +72,9 @@ app.get('/',speakoutRoutes.index);
 app.post('/getDistrictWithLatLong', speakoutRoutes.getDistrictWithLatLong);
 app.post('/updateUserInfo', speakoutRoutes.updateUserInfo);
 app.post('/loadLatestActiveCampaignForUser', speakoutRoutes.loadLatestActiveCampaignForUser);
-app.post('/loadStoriesForCampaign', speakoutRoutes.loadStoriesForCampaign);
+app.post('/loadLatestActiveCampaignForLatLong', speakoutRoutes.loadLatestActiveCampaignForLatLong);
+
+app.post('/loadStoriesForCampaignBeforeTime', speakoutRoutes.loadStoriesForCampaignBeforeTime);
 app.post('/likeStory', speakoutRoutes.likeStory);
 app.post('/reportStory', speakoutRoutes.reportStory);
 app.post('/recordSpeakout', speakoutRoutes.recordSpeakout);
@@ -88,6 +90,7 @@ var server = app.listen(process.env.PORT || '8080', function () {
 });
 
 // listen for change in userInfo > uid > currentLatitude, then update congressional district info for said userInfo
+
 
 function getDistrictWithLatLong(lat, long, callback){
     var url = "http://congress.api.sunlightfoundation.com/districts/locate?apikey=" + sunlightAPIKey;

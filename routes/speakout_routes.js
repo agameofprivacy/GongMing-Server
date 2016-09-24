@@ -5,6 +5,7 @@ var db = app.db;
 var moment = app.moment;
 var request = app.request;
 var sunlightAPIKey = app.sunlightAPIKey;
+
 exports.updateUserInfo = function(req, res){
     var requestParameters = req.body;
     return res.send({success:true, message:"default message"});
@@ -42,22 +43,108 @@ exports.loadLatestActiveCampaignForUser = function(req, res){
     });
 };
 
-exports.loadStoriesForCampaign = function(req, res){
+exports.loadLatestActiveCampaignForLatLong = function(req, res){
+    var latitude = req.body.latitude;
+    var longitude = req.body.longitude;
+    getDistrictWithLatLong(latitude, longitude, function(data){
+        if (data != "error"){
+            var districtString = data["state"] + "-" + data["district"];
+            console.log(districtString);
+            var campaignRef = db.ref("campaign");
+            campaignRef.orderByChild("active").equalTo(true).once("value", function(snapshot){
+                console.log("snapshot has children of " + snapshot.numChildren());
+                if (snapshot.numChildren() > 0) {
+                    snapshot.forEach(function(campaign) {
+                        for(var district in campaign.val()["districts"]){
+                            console.log("campaign district string is:" + district);
+                            if (district == districtString){
+                                console.log("district matched: " + campaign.key);
+                                return res.send({success:true, campaign:campaign.val(), campaignId:campaign.key});     
+                            }
+                        }
+                    });
+                    // console.log("no district matched");
+                    // return res.send({success:false, message:"no active campaigns with applicable district coverage"});
+
+                }
+                else{
+                    // console.log("no active campaign");
+                    // return res.send({success:false, message:"no active campaigns"});     
+                }
+            });
+        }
+        else{
+        console.log(data);
+        }
+    });
+};
+
+
+exports.loadStoriesForCampaignBeforeTime = function(req, res){
     var campaignId = req.body.campaignId;
+    var beforeTime = req.body.beforeTime;
+    console.log(beforeTime);
     var storyRef = db.ref("story/" + campaignId);
-    storyRef.orderByChild("date").once("value", function(snapshot){
+    storyRef.orderByChild("date").endAt(beforeTime).limitToFirst(10).once("value", function(snapshot){
         console.log(snapshot.val());
-        
-        return res.send({success:true, message:"stories found", stories:snapshot.val()});
+        var noMoreStories;
+        if (snapshot.numChildren() < 10){
+            noMoreStories = true;
+        }
+        else{
+            noMoreStories = false;
+        }
+        return res.send({success:true, message:"stories found", stories:snapshot.val(), noMoreStories:noMoreStories});
     });
 };
 
 exports.likeStory = function(req, res){
-    return res.send({success:true, message:"default message"});
+    var campaignId = req.body.campaignId;
+    var storyId = req.body.storyId;
+    var uid = req.body.uid;
+    var storyRef = db.ref("story/" + campaignId + "/" + storyId);
+    storyRef.once("value", function(storyRefSnapshot){
+        // snapshot.ref.child("likedBy" + "/" + uid).set(true);
+        // check if story is in userInfo's likedStories'
+        var likedBefore;
+        var userInfoRef = db.ref("userInfo/" + uid);
+        userInfoRef.once("value",function(userInfoSnapshot){
+            var likedStoriesRef = userInfoSnapshot.ref.child("likedStories")
+            likedStoriesRef.once("value", function(likedStoriesSnapshot){
+                likedStoriesSnapshot.forEach(function(story) {
+                    console.log("story is " + story.ref.key);
+                    console.log("storyId is " + storyId);
+                    if (story.ref.key == storyId){
+                        story.ref.remove();
+                        likedBefore = true;
+                    }
+                });
+            });
+            if (!likedBefore){
+                
+                // else, save story in userInfo's likedStories' and increment likeCount, and append to likedBy
+                likedStoriesRef.child(storyId).set(true);
+                console.log(storyRefSnapshot.val());
+
+                var currentLikeCount = storyRefSnapshot.val()["likeCount"];
+                console.log("new like" + currentLikeCount);
+                storyRefSnapshot.ref.update({likeCount:currentLikeCount + 1});
+                storyRefSnapshot.ref.child("likedBy").update({uid:true});
+            }
+            return res.send({success:true, message:"successfully liked or unliked"});
+        });
+    });
 };
 
 exports.reportStory = function(req, res){
-    return res.send({success:true, message:"default message"});
+    var campaignId = req.body.campaignId;
+    var storyId = req.body.storyId;
+    var uid = req.body.uid;
+    var storyRef = db.ref("story/" + campaignId + "/" + storyId);
+    storyRef.once("value", function(snapshot){
+        snapshot.ref.child("markedInappropriateBy" + "/" + uid).set(true); 
+    });
+    return res.send({success:true, message:"successfully reported"});
 };
 
 exports.recordSpeakout = function(req, res){
@@ -121,7 +208,8 @@ exports.submitStory = function(req, res){
         "textNarrative":textNarrative,
         "authorPhotoURL":authorPhotoURL,
         "authorCity":authorCity,
-        "authorState":authorState
+        "authorState":authorState,
+        "likeCount": 0
     });
     return res.send({success:true, message:"story saved", "storyId":newStory.key});
 };
@@ -238,3 +326,19 @@ function getLegislatorInfoWithLatLong(currentLatitude, currentLongitude, callbac
 
 
 }
+
+function getDistrictWithLatLong(lat, long, callback){
+    var url = "http://congress.api.sunlightfoundation.com/districts/locate?apikey=" + sunlightAPIKey;
+    request(url + '&latitude=' + lat + '&longitude=' + long, function(err, res, body) {
+        if (!err && res.statusCode == 200) {
+            var responseData = JSON.parse(body).results[0];
+            console.log(responseData);
+            callback(responseData);
+        }
+        else{
+            console.log(err);
+            callback("error");
+        }
+    });
+
+};
