@@ -15,6 +15,7 @@ exports.loadLatestActiveCampaignForUser = function(req, res){
     var requestParameters = req.body;
     var uid = requestParameters.uid;
     var userInfoRef = db.ref("userInfo/" + uid);
+    console.log("hello");
     userInfoRef.once("value", function(snapshot) {
         var districtString = snapshot.val()["currentDistrictState"] + "-" + snapshot.val()["currentDistrictNumber"];
         console.log("user district string is:" + districtString);
@@ -22,22 +23,26 @@ exports.loadLatestActiveCampaignForUser = function(req, res){
         campaignRef.orderByChild("active").equalTo(true).once("value", function(snapshot){
             console.log("snapshot has children of " + snapshot.numChildren());
             if (snapshot.numChildren() > 0) {
+                var campaignExamined = 0;
                 snapshot.forEach(function(campaign) {
                     for(var district in campaign.val()["districts"]){
-                        console.log("campaign district string is:" + district);
+                        console.log(":" + district);
                         if (district == districtString){
                             console.log("district matched: " + campaign.key);
                             return res.send({success:true, campaign:campaign.val(), campaignId:campaign.key});     
                         }
                     }
+                    campaignExamined++;
+                    if (campaignExamined == snapshot.numChildren()){
+                        console.log("no district matched");
+                        return res.send({success:false, message:"no active campaigns with applicable district coverage"});
+                    }
                 });
-                // console.log("no district matched");
-                // return res.send({success:false, message:"no active campaigns with applicable district coverage"});
 
             }
             else{
-                // console.log("no active campaign");
-                // return res.send({success:false, message:"no active campaigns"});     
+                console.log("no active campaign");
+                return res.send({success:false, message:"no active campaigns"});     
             }
         });
     });
@@ -54,22 +59,27 @@ exports.loadLatestActiveCampaignForLatLong = function(req, res){
             campaignRef.orderByChild("active").equalTo(true).once("value", function(snapshot){
                 console.log("snapshot has children of " + snapshot.numChildren());
                 if (snapshot.numChildren() > 0) {
+                    var campaignExamined = 0;
                     snapshot.forEach(function(campaign) {
                         for(var district in campaign.val()["districts"]){
-                            console.log("campaign district string is:" + district);
+                            console.log("latlong campaign district string is:" + district);
+                            console.log("latlong district is: " + districtString);
                             if (district == districtString){
                                 console.log("district matched: " + campaign.key);
                                 return res.send({success:true, campaign:campaign.val(), campaignId:campaign.key});     
                             }
+                        }     
+                        campaignExamined++;
+                        if (campaignExamined == snapshot.numChildren()){
+                            console.log("no district matched");
+                            return res.send({success:false, message:"no active campaigns with applicable district coverage"});
                         }
-                    });
-                    // console.log("no district matched");
-                    // return res.send({success:false, message:"no active campaigns with applicable district coverage"});
 
+                    });
                 }
                 else{
-                    // console.log("no active campaign");
-                    // return res.send({success:false, message:"no active campaigns"});     
+                    console.log("no active campaign");
+                    return res.send({success:false, message:"no active campaigns"});     
                 }
             });
         }
@@ -107,6 +117,7 @@ exports.likeStory = function(req, res){
         // snapshot.ref.child("likedBy" + "/" + uid).set(true);
         // check if story is in userInfo's likedStories'
         var likedBefore;
+        var action;
         var userInfoRef = db.ref("userInfo/" + uid);
         userInfoRef.once("value",function(userInfoSnapshot){
             var likedStoriesRef = userInfoSnapshot.ref.child("likedStories")
@@ -117,6 +128,7 @@ exports.likeStory = function(req, res){
                     if (story.ref.key == storyId){
                         story.ref.remove();
                         likedBefore = true;
+                        action = "unliked";
                     }
                 });
             });
@@ -127,11 +139,12 @@ exports.likeStory = function(req, res){
                 console.log(storyRefSnapshot.val());
 
                 var currentLikeCount = storyRefSnapshot.val()["likeCount"];
+                action = "liked";
                 console.log("new like" + currentLikeCount);
                 storyRefSnapshot.ref.update({likeCount:currentLikeCount + 1});
                 storyRefSnapshot.ref.child("likedBy").update({uid:true});
             }
-            return res.send({success:true, message:"successfully liked or unliked"});
+            return res.send({success:true, message:"successfully liked or unliked", action:action});
         });
     });
 };
