@@ -2,11 +2,13 @@
 global.__base = __dirname + '/';
 
 var sunlightAPIKey = "5503cb1366e0492a9be0c6e496cff1b8";
+var googleAPIKey = "AIzaSyAZKvdt75J85k7J5dB8Je42U9wt7aI_az4";
 var request = require('request');
 var moment = require('moment');
 exports.sunlightAPIKey = sunlightAPIKey;
 exports.moment = moment;
 exports.request = request;
+exports.googleAPIKey = googleAPIKey;
 
 var firebase = require('firebase');
 exports.firebase = firebase;
@@ -54,8 +56,6 @@ var app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended:false}));
 
-app.get('/',speakoutRoutes.index);
-app.post('/getDistrictWithLatLong', speakoutRoutes.getDistrictWithLatLong);
 app.post('/updateUserInfo', speakoutRoutes.updateUserInfo);
 app.post('/loadLatestActiveCampaignForUser', speakoutRoutes.loadLatestActiveCampaignForUser);
 app.post('/loadLatestActiveCampaignForLatLong', speakoutRoutes.loadLatestActiveCampaignForLatLong);
@@ -70,10 +70,13 @@ app.post('/loadIssues', speakoutRoutes.loadIssues);
 app.post('/updateStoryImageURLForStory', speakoutRoutes.updateStoryImageURLForStory);
 app.post('/updateStoryAudioURLForStory', speakoutRoutes.updateStoryAudioURLForStory);
 app.post('/getLegislatorInfoAndContactForUser', speakoutRoutes.getLegislatorInfoAndContactForUser);
+app.post('/getCandidatesForAddress', speakoutRoutes.getCandidatesForAddress);
+
 var server = app.listen(process.env.PORT || '8080', function () {
   console.log('App listening on port %s', server.address().port);
   console.log('Press Ctrl+C to quit.');
 });
+
 
 // listen for change in userInfo > uid > currentLatitude, then update congressional district info for said userInfo
 
@@ -123,16 +126,16 @@ function getRandomInt(min, max) {
 // });
 
 // Code to add more legislator
-var candidateRef = db.ref("candidate");
-var newCandidate = candidateRef.push();
-newCandidate.set({
-  "first_name":"John",
-  "last_name":"Smith",
-  "country":"us",
-  "districts":["AZ-4", "CA-8"],
-  "heroImageURL":"http://www.charlottefive.com/wp-content/uploads/2016/03/HB2PROTEST-0324-JFK-01.jpg",
-  "office":""
-});
+// var candidateRef = db.ref("candidate/us/ca");
+// var newCandidate = candidateRef.push();
+// newCandidate.set({
+//   "first_name":"John",
+//   "last_name":"Smith",
+//   "country":"us",
+//   "districts":["AZ-4", "CA-8"],
+//   "heroImageURL":"http://www.charlottefive.com/wp-content/uploads/2016/03/HB2PROTEST-0324-JFK-01.jpg",
+//   "office":""
+// });
 
 
 

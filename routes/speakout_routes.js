@@ -5,6 +5,7 @@ var db = app.db;
 var moment = app.moment;
 var request = app.request;
 var sunlightAPIKey = app.sunlightAPIKey;
+var googleAPIKey = app.googleAPIKey;
 
 exports.updateUserInfo = function(req, res){
     var requestParameters = req.body;
@@ -272,23 +273,77 @@ exports.getLegislatorInfoAndContactForUser = function(req, res){
     
 }
 
-/*
-placeholder apis
-*/
+exports.getCandidatesForAddress = function(req, res){
+    var address = req.body.address;
+    getCandidatesForAddress(address, function(data){
+        if (data != "error"){
+            var candidatesList = [];
+            var numberOfDivisionProcessed = 0;
+            for (var i = 0; i < data["offices"].length; i++){
+                var officeOCD = data["offices"][i]["divisionId"];
+                var officeName = data["offices"][i]["name"];
+                // console.log("office id: " + officeOCD);
+                // console.log("office name: " + officeName);
+                var candidatesRef = db.ref("candidate")
+                candidatesRef.orderByChild("divisionId").equalTo(officeOCD).once("value", function(snapshot){
+                console.log(officeName);
+                    if (snapshot.numChildren() > 0) {
+                        var candidateCount = 0
+                        for (var i = 0; i < snapshot.numChildren(); i++){
+                            console.log(snapshot.val());
+                            var snapshotObject = snapshot.val();
+                            for (var candidateObject in snapshotObject){
+                                var candidate = snapshotObject[candidateObject];
+                                if (candidate["officeName"] == this.officeName){
+                                    candidatesList.push(candidate);
+                                    console.log("candidate to add is " + candidate);
+                                } 
+                                candidateCount++;
+                                if (candidateCount == snapshot.numChildren()){
+                                    numberOfDivisionProcessed++;
+                                    if (numberOfDivisionProcessed == data["offices"].length){
+                                        console.log("candidates list is :" + candidatesList);
+                                        res.send({success:true, candidatesList: candidatesList, message:"candidates are found"});
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else{
+                        numberOfDivisionProcessed++;
+                        if (numberOfDivisionProcessed == data["offices"].length){
+                            console.log("candidates list is :" + candidatesList);
+                            res.send({success:true, candidatesList: candidatesList, message:"candidates are found"});
 
-exports.index = function(req,res){
-    console.log("index function");
-    console.log(req.params)
-    return res.send({ success : true, message : 'success returned from speakout nodejs server' });
-};
+                        }
+                    }
+                }, {officeName:officeName});
 
-exports.getDistrictWithLatLong = function(req, res){
-  //req.body is your array of objects now:
-  console.log(req.body);
-  console.log(req.body.latitude);
-  // [{id:134123, url:'www.qwer.com'},{id:131211,url:'www.asdf.com'}]
-  return res.send({success:true, message:"district returned"})
-};
+            }
+            
+        }
+        else{
+            res.send({success:false, message:"candidates are not found"});
+        }
+    });
+}
+
+function getCandidatesForAddress(address, callback){
+  var url = "https://www.googleapis.com/civicinfo/v2/representatives?address=" + address + "&includeOffices=true&fields=offices(divisionId%2Cname%2Croles)&key=" + googleAPIKey;
+    request(url, function(err, res, body) {
+        if (!err && res.statusCode == 200) {
+            var responseData = JSON.parse(body);
+            console.log(url);
+            callback(responseData);
+        }
+        else{
+          console.log(url);
+            console.log(err);
+            callback("error");
+        }
+    });
+}
+
 
 function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
