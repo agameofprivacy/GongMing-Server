@@ -135,6 +135,19 @@ function getRandomInt(min, max) {
 //   newCandidate.set(candidatesForEqualityJSON[candidate]);
 // }
 
+// var candidateRef = db.ref("candidate");
+// var newCandidate = candidateRef.push();
+// newCandidate.set({
+//   "divisionId":"ocd-division/country:us",
+//   "officeName":"President of the United States",
+//   "isLGBT":false,
+//   "name":"Hillary Clinton",
+//   "source":"eqca",
+//   "photoURL":"https://pbs.twimg.com/profile_images/750300510264107008/G8-PA5KA.jpg"
+// });
+
+
+
 // Code to add issues
 // var issueRef = db.ref("issue");
 // var issues = ["Adoption and Parental Rights", "Bullying", "The Equality Act", "Global LGBT Rights", "HIV & AIDS", "Immigration", "Marriage Equality", "Nondiscrimination Protection","Religion & Faith","Religious Freedom Restoration", "Transgender People", "Voter ID Laws"];

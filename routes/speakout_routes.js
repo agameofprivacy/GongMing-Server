@@ -16,33 +16,26 @@ exports.loadLatestActiveCampaignForUser = function(req, res){
     var requestParameters = req.body;
     var uid = requestParameters.uid;
     var userInfoRef = db.ref("userInfo/" + uid);
-    console.log("hello");
     userInfoRef.once("value", function(snapshot) {
         var districtString = snapshot.val()["currentDistrictState"] + "-" + snapshot.val()["currentDistrictNumber"];
-        console.log("user district string is:" + districtString);
         var campaignRef = db.ref("campaign");
         campaignRef.orderByChild("active").equalTo(true).once("value", function(snapshot){
-            console.log("snapshot has children of " + snapshot.numChildren());
             if (snapshot.numChildren() > 0) {
                 var campaignExamined = 0;
                 snapshot.forEach(function(campaign) {
                     for(var district in campaign.val()["districts"]){
-                        console.log(":" + district);
                         if (district == districtString){
-                            console.log("district matched: " + campaign.key);
                             return res.send({success:true, campaign:campaign.val(), campaignId:campaign.key});     
                         }
                     }
                     campaignExamined++;
                     if (campaignExamined == snapshot.numChildren()){
-                        console.log("no district matched");
                         return res.send({success:false, message:"no active campaigns with applicable district coverage"});
                     }
                 });
 
             }
             else{
-                console.log("no active campaign");
                 return res.send({success:false, message:"no active campaigns"});     
             }
         });
@@ -55,37 +48,29 @@ exports.loadLatestActiveCampaignForLatLong = function(req, res){
     getDistrictWithLatLong(latitude, longitude, function(data){
         if (data != "error"){
             var districtString = data["state"] + "-" + data["district"];
-            console.log(districtString);
             var campaignRef = db.ref("campaign");
             campaignRef.orderByChild("active").equalTo(true).once("value", function(snapshot){
-                console.log("snapshot has children of " + snapshot.numChildren());
                 if (snapshot.numChildren() > 0) {
                     var campaignExamined = 0;
                     snapshot.forEach(function(campaign) {
                         for(var district in campaign.val()["districts"]){
-                            console.log("latlong campaign district string is:" + district);
-                            console.log("latlong district is: " + districtString);
                             if (district == districtString){
-                                console.log("district matched: " + campaign.key);
                                 return res.send({success:true, campaign:campaign.val(), campaignId:campaign.key});     
                             }
                         }     
                         campaignExamined++;
                         if (campaignExamined == snapshot.numChildren()){
-                            console.log("no district matched");
                             return res.send({success:false, message:"no active campaigns with applicable district coverage"});
                         }
 
                     });
                 }
                 else{
-                    console.log("no active campaign");
                     return res.send({success:false, message:"no active campaigns"});     
                 }
             });
         }
         else{
-        console.log(data);
         }
     });
 };
@@ -94,10 +79,8 @@ exports.loadLatestActiveCampaignForLatLong = function(req, res){
 exports.loadStoriesForCampaignBeforeTime = function(req, res){
     var campaignId = req.body.campaignId;
     var beforeTime = req.body.beforeTime;
-    console.log(beforeTime);
     var storyRef = db.ref("story/" + campaignId);
     storyRef.orderByChild("date").endAt(beforeTime).limitToFirst(10).once("value", function(snapshot){
-        console.log(snapshot.val());
         var noMoreStories;
         if (snapshot.numChildren() < 10){
             noMoreStories = true;
@@ -124,8 +107,6 @@ exports.likeStory = function(req, res){
             var likedStoriesRef = userInfoSnapshot.ref.child("likedStories")
             likedStoriesRef.once("value", function(likedStoriesSnapshot){
                 likedStoriesSnapshot.forEach(function(story) {
-                    console.log("story is " + story.ref.key);
-                    console.log("storyId is " + storyId);
                     if (story.ref.key == storyId){
                         story.ref.remove();
                         likedBefore = true;
@@ -137,11 +118,9 @@ exports.likeStory = function(req, res){
                 
                 // else, save story in userInfo's likedStories' and increment likeCount, and append to likedBy
                 likedStoriesRef.child(storyId).set(true);
-                console.log(storyRefSnapshot.val());
 
                 var currentLikeCount = storyRefSnapshot.val()["likeCount"];
                 action = "liked";
-                console.log("new like" + currentLikeCount);
                 storyRefSnapshot.ref.update({likeCount:currentLikeCount + 1});
                 storyRefSnapshot.ref.child("likedBy").update({uid:true});
             }
@@ -246,7 +225,6 @@ exports.loadIssuesForAddress = function(req, res){
                     searchOffice.push(data["offices"][i]["divisionId"]);
                 }
             }
-            console.log("search office is " + searchOffice);
             for (var i = 0; i < searchOffice.length; i++){
                 var officeOCD = searchOffice[i];
                 var issuesRef = db.ref("issue")
@@ -257,12 +235,10 @@ exports.loadIssuesForAddress = function(req, res){
                         for (var issueObject in snapshotObject){
                             var issue = snapshotObject[issueObject];
                             issuesList.push(issue);
-                            console.log("issue to add is " + issue);
                             issueCount++;
                             if (issueCount == snapshot.numChildren()){
                                 numberOfDivisionProcessed++;
                                 if (numberOfDivisionProcessed == searchOffice.length){
-                                    console.log("issues list is :" + issuesList);
                                     res.send({success:true, issuesList: issuesList, normalizedAddress:normalizedAddress, message:"issues are found"});
                                 }
                             }
@@ -271,7 +247,6 @@ exports.loadIssuesForAddress = function(req, res){
                     else{
                         numberOfDivisionProcessed++;
                         if (numberOfDivisionProcessed == searchOffice.length){
-                            console.log("issues list is :" + issuesList);
                             res.send({success:true, issuesList: issuesList, normalizedAddress:normalizedAddress, message:"issues are found"});
 
                         }
@@ -325,7 +300,6 @@ exports.getLegislatorInfoAndContactForUser = function(req, res){
 
 exports.getCandidatesForAddress = function(req, res){
     var address = encodeURIComponent(req.body.address);
-    console.log("delivered address is " + address);
     getCandidatesForAddress(address, function(data){
         if (data != "error"){
             var normalizedAddress = data["normalizedInput"]["line1"] + ", " + data["normalizedInput"]["city"];
@@ -342,16 +316,14 @@ exports.getCandidatesForAddress = function(req, res){
                             var snapshotObject = snapshot.val();
                             for (var candidateObject in snapshotObject){
                                 var candidate = snapshotObject[candidateObject];
-                                console.log("user officeName is: " + this.officeName + " and candidate officeName is: " + candidate["officeName"]);
                                 if (candidate["officeName"] == this.officeName){
                                     candidatesList.push(candidate);
-                                    console.log("candidate to add is " + candidate);
                                 } 
                                 candidateCount++;
                                 if (candidateCount == snapshot.numChildren()){
                                     numberOfDivisionProcessed++;
                                     if (numberOfDivisionProcessed == data["offices"].length){
-                                        console.log("candidates list is :" + candidatesList);
+                                        candidatesList = sortCandidatesByOfficeLevel(candidatesList, true);
                                         res.send({success:true, candidatesList: candidatesList, normalizedAddress:normalizedAddress, message:"candidates are found"});
                                     }
                                 }
@@ -361,7 +333,7 @@ exports.getCandidatesForAddress = function(req, res){
                     else{
                         numberOfDivisionProcessed++;
                         if (numberOfDivisionProcessed == data["offices"].length){
-                            console.log("candidates list is :" + candidatesList);
+                            candidatesList = sortCandidatesByOfficeLevel(candidatesList, true);
                             res.send({success:true, candidatesList: candidatesList, normalizedAddress:normalizedAddress, message:"candidates are found"});
 
                         }
@@ -382,11 +354,9 @@ function getCandidatesForAddress(address, callback){
     request(url, function(err, res, body) {
         if (!err && res.statusCode == 200) {
             var responseData = JSON.parse(body);
-            console.log(url);
             callback(responseData);
         }
         else{
-          console.log(url);
             console.log("error from google is :" + err + "and status message is :" + res.statusMessage);
             callback("error");
         }
@@ -449,7 +419,6 @@ function getDistrictWithLatLong(lat, long, callback){
     request(url + '&latitude=' + lat + '&longitude=' + long, function(err, res, body) {
         if (!err && res.statusCode == 200) {
             var responseData = JSON.parse(body).results[0];
-            console.log(responseData);
             callback(responseData);
         }
         else{
@@ -459,3 +428,16 @@ function getDistrictWithLatLong(lat, long, callback){
     });
 
 };
+
+
+function sortCandidatesByOfficeLevel(candidatesList, desc){
+    // var candidatesArray = [];
+    // for (var candidate in candidatesList){
+    //     candidatesArray.push(candidatesList[candidate]);
+    // }
+    // console.log(candidatesArray);
+    candidatesList.sort(function(a, b){
+        return a.divisionId.length - b.divisionId.length;
+    });
+    return candidatesList;
+}
