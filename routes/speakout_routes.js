@@ -232,9 +232,58 @@ exports.loadCandidatesForEquality = function(req, res){
     return res.send({success:true, message:"default message"});
 };
 
-exports.loadIssues = function(req, res){
-    return res.send({success:true, message:"default message"});
-};
+exports.loadIssuesForAddress = function(req, res){
+    var address = encodeURIComponent(req.body.address);
+    getCandidatesForAddress(address, function(data){
+        if (data != "error"){
+            var normalizedAddress = data["normalizedInput"]["line1"] + ", " + data["normalizedInput"]["city"];
+
+            var issuesList = [];
+            var numberOfDivisionProcessed = 0;
+            var searchOffice = [];
+            for (var i = 0; i < data["offices"].length; i++){
+                if (searchOffice.indexOf(data["offices"][i]["divisionId"]) == -1){
+                    searchOffice.push(data["offices"][i]["divisionId"]);
+                }
+            }
+            console.log("search office is " + searchOffice);
+            for (var i = 0; i < searchOffice.length; i++){
+                var officeOCD = searchOffice[i];
+                var issuesRef = db.ref("issue")
+                issuesRef.orderByChild("divisionId").equalTo(officeOCD).once("value", function(snapshot){
+                    if (snapshot.numChildren() > 0) {
+                        var issueCount = 0
+                        var snapshotObject = snapshot.val();
+                        for (var issueObject in snapshotObject){
+                            var issue = snapshotObject[issueObject];
+                            issuesList.push(issue);
+                            console.log("issue to add is " + issue);
+                            issueCount++;
+                            if (issueCount == snapshot.numChildren()){
+                                numberOfDivisionProcessed++;
+                                if (numberOfDivisionProcessed == searchOffice.length){
+                                    console.log("issues list is :" + issuesList);
+                                    res.send({success:true, issuesList: issuesList, normalizedAddress:normalizedAddress, message:"issues are found"});
+                                }
+                            }
+                        }
+                    }
+                    else{
+                        numberOfDivisionProcessed++;
+                        if (numberOfDivisionProcessed == searchOffice.length){
+                            console.log("issues list is :" + issuesList);
+                            res.send({success:true, issuesList: issuesList, normalizedAddress:normalizedAddress, message:"issues are found"});
+
+                        }
+                    }
+                });
+            }
+        }
+        else{
+            res.send({success:false, message:"issues are not found"});
+        }
+    });
+}
 
 exports.updateStoryImageURLForStory = function(req, res){
     var storyId = req.body.storyId;
@@ -270,30 +319,30 @@ exports.getLegislatorInfoAndContactForUser = function(req, res){
             return res.send(data);
         });
     });
-    
 }
 
+
+
 exports.getCandidatesForAddress = function(req, res){
-    var address = req.body.address;
+    var address = encodeURIComponent(req.body.address);
+    console.log("delivered address is " + address);
     getCandidatesForAddress(address, function(data){
         if (data != "error"){
+            var normalizedAddress = data["normalizedInput"]["line1"] + ", " + data["normalizedInput"]["city"];
             var candidatesList = [];
             var numberOfDivisionProcessed = 0;
             for (var i = 0; i < data["offices"].length; i++){
                 var officeOCD = data["offices"][i]["divisionId"];
                 var officeName = data["offices"][i]["name"];
-                // console.log("office id: " + officeOCD);
-                // console.log("office name: " + officeName);
                 var candidatesRef = db.ref("candidate")
                 candidatesRef.orderByChild("divisionId").equalTo(officeOCD).once("value", function(snapshot){
-                console.log(officeName);
                     if (snapshot.numChildren() > 0) {
                         var candidateCount = 0
                         for (var i = 0; i < snapshot.numChildren(); i++){
-                            console.log(snapshot.val());
                             var snapshotObject = snapshot.val();
                             for (var candidateObject in snapshotObject){
                                 var candidate = snapshotObject[candidateObject];
+                                console.log("user officeName is: " + this.officeName + " and candidate officeName is: " + candidate["officeName"]);
                                 if (candidate["officeName"] == this.officeName){
                                     candidatesList.push(candidate);
                                     console.log("candidate to add is " + candidate);
@@ -303,7 +352,7 @@ exports.getCandidatesForAddress = function(req, res){
                                     numberOfDivisionProcessed++;
                                     if (numberOfDivisionProcessed == data["offices"].length){
                                         console.log("candidates list is :" + candidatesList);
-                                        res.send({success:true, candidatesList: candidatesList, message:"candidates are found"});
+                                        res.send({success:true, candidatesList: candidatesList, normalizedAddress:normalizedAddress, message:"candidates are found"});
                                     }
                                 }
                             }
@@ -313,7 +362,7 @@ exports.getCandidatesForAddress = function(req, res){
                         numberOfDivisionProcessed++;
                         if (numberOfDivisionProcessed == data["offices"].length){
                             console.log("candidates list is :" + candidatesList);
-                            res.send({success:true, candidatesList: candidatesList, message:"candidates are found"});
+                            res.send({success:true, candidatesList: candidatesList, normalizedAddress:normalizedAddress, message:"candidates are found"});
 
                         }
                     }
@@ -329,7 +378,7 @@ exports.getCandidatesForAddress = function(req, res){
 }
 
 function getCandidatesForAddress(address, callback){
-  var url = "https://www.googleapis.com/civicinfo/v2/representatives?address=" + address + "&includeOffices=true&fields=offices(divisionId%2Cname%2Croles)&key=" + googleAPIKey;
+  var url = "https://www.googleapis.com/civicinfo/v2/representatives?address=" + address + "&includeOffices=true&fields=offices(divisionId%2Cname%2Croles)%2CnormalizedInput&key=" + googleAPIKey;
     request(url, function(err, res, body) {
         if (!err && res.statusCode == 200) {
             var responseData = JSON.parse(body);
@@ -338,7 +387,7 @@ function getCandidatesForAddress(address, callback){
         }
         else{
           console.log(url);
-            console.log(err);
+            console.log("error from google is :" + err + "and status message is :" + res.statusMessage);
             callback("error");
         }
     });

@@ -15,7 +15,10 @@ exports.firebase = firebase;
 
 firebase.initializeApp({
   databaseURL: 'https://speakout-9d07b.firebaseio.com',
-  serviceAccount: './speakoutServiceAccount.json'
+  serviceAccount: './speakoutServiceAccount.json',
+  databaseAuthVariableOverride: {
+    uid: "my-service-worker"
+  }
 });
 
 var db = firebase.database();
@@ -66,7 +69,7 @@ app.post('/reportStory', speakoutRoutes.reportStory);
 app.post('/recordSpeakout', speakoutRoutes.recordSpeakout);
 app.post('/submitStory', speakoutRoutes.submitStory);
 app.post('/loadCandidatesForEquality', speakoutRoutes.loadCandidatesForEquality);
-app.post('/loadIssues', speakoutRoutes.loadIssues);
+app.post('/loadIssuesForAddress', speakoutRoutes.loadIssuesForAddress);
 app.post('/updateStoryImageURLForStory', speakoutRoutes.updateStoryImageURLForStory);
 app.post('/updateStoryAudioURLForStory', speakoutRoutes.updateStoryAudioURLForStory);
 app.post('/getLegislatorInfoAndContactForUser', speakoutRoutes.getLegislatorInfoAndContactForUser);
@@ -125,17 +128,24 @@ function getRandomInt(min, max) {
 //     }
 // });
 
-// Code to add more legislator
-// var candidateRef = db.ref("candidate/us/ca");
-// var newCandidate = candidateRef.push();
-// newCandidate.set({
-//   "first_name":"John",
-//   "last_name":"Smith",
-//   "country":"us",
-//   "districts":["AZ-4", "CA-8"],
-//   "heroImageURL":"http://www.charlottefive.com/wp-content/uploads/2016/03/HB2PROTEST-0324-JFK-01.jpg",
-//   "office":""
-// });
+// Code to add more candidate
+// var candidateRef = db.ref("candidate");
+// for (var candidate in candidatesForEqualityJSON){
+//   var newCandidate = candidateRef.push();
+//   newCandidate.set(candidatesForEqualityJSON[candidate]);
+// }
+
+// Code to add issues
+// var issueRef = db.ref("issue");
+// var issues = ["Adoption and Parental Rights", "Bullying", "The Equality Act", "Global LGBT Rights", "HIV & AIDS", "Immigration", "Marriage Equality", "Nondiscrimination Protection","Religion & Faith","Religious Freedom Restoration", "Transgender People", "Voter ID Laws"];
+// for (var issue in issues){
+//   var newIssue = issueRef.push();
+//   newIssue.set({
+//     "divisionId":"ocd-division/country:us",
+//     "title":issues[issue]
+//   });
+// }
+
 
 
 
