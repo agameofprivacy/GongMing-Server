@@ -79,16 +79,43 @@ exports.loadLatestActiveCampaignForLatLong = function(req, res){
 exports.loadStoriesForCampaignBeforeTime = function(req, res){
     var campaignId = req.body.campaignId;
     var beforeTime = req.body.beforeTime;
+    var initialLoad = req.body.initialLoad;
     var storyRef = db.ref("story/" + campaignId);
-    storyRef.orderByChild("date").endAt(beforeTime).limitToFirst(10).once("value", function(snapshot){
+    var numStories = 1;
+    if (initialLoad){
+        numStories = 0;
+    }
+    
+    storyRef.orderByChild("date").endAt(beforeTime).limitToLast(numStories + 1).once("value", function(snapshot){
         var noMoreStories;
-        if (snapshot.numChildren() < 10){
-            noMoreStories = true;
+        var stories;
+        if (snapshot.numChildren() >= numStories + 1){
+            stories = snapshot.val();
+            if (!initialLoad){
+                var index = 0;
+                var indexToDelete;
+                var keyOfStoryToDelete;
+                for (var story in stories){
+                    if (stories[story]["date"] == beforeTime){
+                        keyOfStoryToDelete = story;
+                        delete stories[keyOfStoryToDelete];
+                    }
+                    index++;
+                }
+            }
+            if (stories.length < numStories + 1){
+                noMoreStories = true;
+            }
+            else{
+                noMoreStories = false;
+            }
+
+            return res.send({success:true, message:"stories found", stories:stories, noMoreStories:noMoreStories});
+
         }
-        else{
-            noMoreStories = false;
-        }
-        return res.send({success:true, message:"stories found", stories:snapshot.val(), noMoreStories:noMoreStories});
+    else{
+        return res.send({success:false, message:"no more stories found", stories:null, noMoreStories:true});
+    }
     });
 };
 
