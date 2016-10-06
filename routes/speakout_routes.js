@@ -81,16 +81,18 @@ exports.loadStoriesForCampaignBeforeTime = function(req, res){
     var beforeTime = req.body.beforeTime;
     var initialLoad = req.body.initialLoad;
     var storyRef = db.ref("story/" + campaignId);
-    var numStories = 1;
+    var numStories = 10;
     if (initialLoad){
-        numStories = 0;
+        numStories = numStories - 1;
     }
     
     storyRef.orderByChild("date").endAt(beforeTime).limitToLast(numStories + 1).once("value", function(snapshot){
         var noMoreStories;
         var stories;
-        if (snapshot.numChildren() >= numStories + 1){
+        var storiesList = [];
+        if (snapshot.numChildren() > 1){
             stories = snapshot.val();
+            console.log(stories);
             if (!initialLoad){
                 var index = 0;
                 var indexToDelete;
@@ -109,7 +111,11 @@ exports.loadStoriesForCampaignBeforeTime = function(req, res){
             else{
                 noMoreStories = false;
             }
-
+            console.log(stories);
+            for (var story in stories){
+                storiesList.push(stories[story]);
+            }
+            stories = sortStoriesByDate(storiesList, true);
             return res.send({success:true, message:"stories found", stories:stories, noMoreStories:noMoreStories});
 
         }
@@ -467,4 +473,16 @@ function sortCandidatesByOfficeLevel(candidatesList, desc){
         return a.divisionId.length - b.divisionId.length;
     });
     return candidatesList;
+}
+
+function sortStoriesByDate(stories, desc){
+    // var candidatesArray = [];
+    // for (var candidate in candidatesList){
+    //     candidatesArray.push(candidatesList[candidate]);
+    // }
+    // console.log(candidatesArray);
+    stories.sort(function(a, b){
+        return b.date - a.date;
+    });
+    return stories;
 }
