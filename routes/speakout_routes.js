@@ -42,6 +42,64 @@ exports.loadLatestActiveCampaignForUser = function(req, res){
     });
 };
 
+exports.loadLatestActiveCampaignForAddress = function (req, res){
+    var address = encodeURIComponent(req.body.address);
+    getOfficesForAddress(address, function(data){
+        if (data != "error"){
+            var normalizedAddress = data["normalizedInput"]["line1"] + ", " + data["normalizedInput"]["city"];
+            var campaignsList = [];
+            var numberOfDivisionProcessed = 0;
+            var divisionsArray = [];
+            for (var i = 0; i < data["offices"].length; i++){
+                if (divisionsArray.indexOf(data["offices"][i]["divisionId"]) == -1){
+                    divisionsArray.push(data["offices"][i]["divisionId"]);
+                }
+            }
+            for (var i = 0; i < divisionsArray.length; i++){
+                var officeOCD = divisionsArray[i];
+                var campaignsRef = db.ref("campaign")
+                campaignsRef.orderByChild("divisionId").equalTo(officeOCD).once("value", function(snapshot){
+                    if (snapshot.numChildren() > 0) {
+                        var campaignCount = 0
+                        for (var i = 0; i < snapshot.numChildren(); i++){
+                            var snapshotObject = snapshot.val();
+                            for (var campaignObject in snapshotObject){
+                                var campaign = snapshotObject[campaignObject];
+                                console.log("campaign is :" + campaignObject);
+                                campaign["key"] = campaignObject;
+                                if (campaignsList.indexOf(campaign) == -1){
+                                    campaignsList.push(campaign); 
+                                }
+                                campaignCount++;
+                                if (campaignCount == snapshot.numChildren()){
+                                    numberOfDivisionProcessed++;
+                                    if (numberOfDivisionProcessed == divisionsArray.length){
+                                        campaignsList = sortCampaignsByOfficeLevel(campaignsList, true);
+                                        res.send({success:true, campaignsList: campaignsList, normalizedAddress:normalizedAddress, message:"candidates are found"});
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else{
+                        numberOfDivisionProcessed++;
+                        if (numberOfDivisionProcessed == divisionsArray.length){
+                            campaignsList = sortCampaignsByOfficeLevel(campaignsList, true);
+                            res.send({success:true, campaignsList: campaignsList, normalizedAddress:normalizedAddress, message:"candidates are found"});
+
+                        }
+                    }
+                });
+
+            }
+            
+        }
+        else{
+            res.send({success:false, message:"offices are not found"});
+        }
+    });
+};
+
 exports.loadLatestActiveCampaignForLatLong = function(req, res){
     var latitude = req.body.latitude;
     var longitude = req.body.longitude;
@@ -176,12 +234,11 @@ exports.reportStory = function(req, res){
 exports.recordSpeakout = function(req, res){
     var uid = req.body.uid;
     var campaignId = req.body.campaignId;
+    var address = req.body.address;
     var date = moment().unix();
     var userInfoRef = db.ref("userInfo/" + uid);
     userInfoRef.once("value",function(snapshot){
-        var currentDistrictNumber = snapshot.val()["currentDistrictNumber"];
-        var currentDistrictState = snapshot.val()["currentDistrictState"];
-            var campaignSpeakoutsRef = db.ref("speakout/"+ campaignId);
+        var campaignSpeakoutsRef = db.ref("speakout/"+ campaignId);
         campaignSpeakoutsRef.orderByChild("author").equalTo(uid).once("value", function(snapshot){
             if (snapshot.numChildren() > 0){
                 return res.send({success:false, message:"you already spoke out on this campaign"});
@@ -190,25 +247,41 @@ exports.recordSpeakout = function(req, res){
                 var userInfoRef = db.ref("userInfo/" + uid);
                 userInfoRef.once("value", function(snapshot){
                     snapshot.child("speakoutCampaign/" + campaignId).ref.set(true);
+                    snapshot.child("takeAddedCampaign/" + campaignId).ref.set(true);
                     var newSpeakout = campaignSpeakoutsRef.push();
-                    newSpeakout.set({
-                        "author":uid,
-                        "date":date,
-                        "currentDistrictNumber":currentDistrictNumber,
-                        "currentDistrictState":currentDistrictState
-                    });
-                    var campaignRef = db.ref("campaign");
-                    campaignRef.orderByKey().equalTo(campaignId).once("value", function(snapshot){
-                        snapshot.forEach(function(campaign) {
-                            for(var district in campaign.val()["districts"]){
-                                if (district == currentDistrictState + "-" + currentDistrictNumber){
-                                    return res.send({success:true, message:"speakout recorded", shouldPromptForStory:true});
-                                }
+                    // record most local divisionId that matches thoses listed in campaign
+                    var campaignRef = db.ref("campaign/" + campaignId);
+                    campaignRef.once("value", function(snapshot){
+                        var campaign = snapshot.val();
+                        var legislatorOffices = campaign["legislatorOffices"];
+                        var mostLocalDivisionId = "";
+                        getOfficesForAddress(address, function(data){
+                            var offices = data["offices"];
+                            var city = data["normalizedInput"]["city"];
+                            var state = data["normalizedInput"]["state"];
+                            for (var office in offices){
+                                console.log("office[divisionId] in offices is " + office["divisionId"]);
+                                var divisionId = office["divisionId"]
+                                for (var key in legislatorOffices){
+                                    console.log("key in legislatorOffices is " + key);
+                                    if (divisionId == key && divisionId.length > mostLocalDivisionId.length){
+                                        mostLocalDivisionId = divisionId;
+                                    }
+                                } 
                             }
-                            return res.send({success:true, message:"speakout recorded", shouldPromptForStory:false});    
+                            if (mostLocalDivisionId != ""){
+                                newSpeakout.set({
+                                    "author":uid,
+                                    "date":date,
+                                    "divisionId":mostLocalDivisionId
+                                });
+                                return res.send({success:true, message:"speakout recorded", shouldPromptForStory:true, divisionId:mostLocalDivisionId, city:city, state:state});
+                            }
+                            else{
+                                return res.send({success:true, message:"speakout recorded", shouldPromptForStory:false});    
+                            }
                         });
                     });
-
                 });
             }
         });
@@ -240,9 +313,6 @@ exports.submitStory = function(req, res){
     return res.send({success:true, message:"story saved", "storyId":newStory.key});
 };
 
-exports.loadCandidatesForEquality = function(req, res){
-    return res.send({success:true, message:"default message"});
-};
 
 exports.loadIssuesForAddress = function(req, res){
     var address = encodeURIComponent(req.body.address);
@@ -382,8 +452,39 @@ exports.getCandidatesForAddress = function(req, res){
     });
 }
 
+exports.loadLegislatorForCampaignIdWithDivisionId = function(req, res){
+    var campaignId = req.body.campaignId;
+    var divisionId = req.body.divisionId;
+    getLegislatorInfoForCampaignIdAndDivisionId(campaignId, divisionId, function(legislator, office){
+        if (legislator != "error"){
+            var legislatorNameString = legislator["name"];
+            var legislatorRoleString = office["name"];
+            var legislatorPhotoURL = legislator["photoUrl"];
+            var legislatorPhoneString = legislator["phones"][0];
+            callback({ success : true, message : 'legislator info delivered', legislatorNameString: legislatorNameString, legislatorRoleString:legislatorRoleString, legislatorPhotoURL:legislatorPhotoURL, legislatorPhoneString:legislatorPhoneString});
+        }
+        else{
+            res.send()
+        }
+    });
+}
+
 function getCandidatesForAddress(address, callback){
   var url = "https://www.googleapis.com/civicinfo/v2/representatives?address=" + address + "&includeOffices=true&fields=offices(divisionId%2Cname%2Croles)%2CnormalizedInput&key=" + googleAPIKey;
+    request(url, function(err, res, body) {
+        if (!err && res.statusCode == 200) {
+            var responseData = JSON.parse(body);
+            callback(responseData);
+        }
+        else{
+            console.log("error from google is :" + err + "and status message is :" + res.statusMessage);
+            callback("error");
+        }
+    });
+}
+
+function getOfficesForAddress(address, callback){
+    var url = "https://www.googleapis.com/civicinfo/v2/representatives?address=" + address + "&includeOffices=true&fields=normalizedInput%2Coffices(divisionId%2Cname)&key=" + googleAPIKey;
     request(url, function(err, res, body) {
         if (!err && res.statusCode == 200) {
             var responseData = JSON.parse(body);
@@ -399,6 +500,17 @@ function getCandidatesForAddress(address, callback){
 
 function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function getLegislatorInfoForCampaignId(campaignId, callback){
+    var campaignRef = db.ref("campaign/" + campaignId)
+    campaignRef.once("value", function(snapshot){
+        var campaign = snapshot.val();
+        var legislatorOffices = campaign["legislatorOffices"];
+        var randomInt = getRandomInt(0, legislatorOffices.length - 1);
+        legislatorOffice = legislatorOffices[randomInt];
+        console.log(legislatorOffice);
+    });
 }
 
 function getLegislatorInfoWithLatLong(currentLatitude, currentLongitude, callback){
@@ -475,6 +587,19 @@ function sortCandidatesByOfficeLevel(candidatesList, desc){
     return candidatesList;
 }
 
+function sortCampaignsByOfficeLevel(campaignsList, desc){
+    // var candidatesArray = [];
+    // for (var candidate in candidatesList){
+    //     candidatesArray.push(candidatesList[candidate]);
+    // }
+    // console.log(candidatesArray);
+    campaignsList.sort(function(a, b){
+        return b.divisionId.length - a.divisionId.length;
+    });
+    return campaignsList;
+}
+
+
 function sortStoriesByDate(stories, desc){
     // var candidatesArray = [];
     // for (var candidate in candidatesList){
@@ -485,4 +610,43 @@ function sortStoriesByDate(stories, desc){
         return b.date - a.date;
     });
     return stories;
+}
+
+
+function getLegislatorInfoForCampaignIdAndDivisionId(campaignId, divisionId, callback){
+    var campaignRef = db.ref("campaign/" + campaignId)
+    campaignRef.once("value", function(snapshot){
+        var campaign = snapshot.val();
+        var legislatorOffices = campaign["legislatorOffices"];
+        getRandomLegislatorForDivisionId(divisionId, function(legislator, office){
+            if (legislator != "error"){
+                console.log("random legislator is " + legislator["name"]);
+                callback(legislator, office);
+            }
+            else{
+                console.log("error");
+            }
+        });
+    });
+}
+
+function getRandomLegislatorForDivisionId(divisionId, callback){
+  var divisionId = encodeURIComponent(divisionId);
+  var url = "https://www.googleapis.com/civicinfo/v2/representatives/" + divisionId + "?key=" + googleAPIKey; 
+    request(url, function(err, res, body) {
+        if (!err && res.statusCode == 200) {
+            var responseData = JSON.parse(body);
+            var officials = responseData["officials"];
+            var offices = responseData["offices"];
+            var randomInt = getRandomInt(0, Object.keys(officials).length - 1);
+            var randomOfficial = officials[randomInt];
+            var randomOffice = offices[randomInt];
+            callback(randomOfficial, randomOffice);
+        }
+        else{
+            console.log("error from google is :" + err + "and status message is :" + res.statusMessage);
+            callback("error");
+        }
+    });
+
 }

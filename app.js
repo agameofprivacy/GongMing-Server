@@ -23,24 +23,24 @@ firebase.initializeApp({
 
 var db = firebase.database();
 exports.db = db;
-var userInfoRef = db.ref("userInfo");
+// var userInfoRef = db.ref("userInfo");
 
-userInfoRef.on("child_changed", function(snapshot) {
-  console.log(snapshot.val());
-  var userInfo = snapshot.val();
-  var currentLatitude = userInfo["currentLatitude"];
-  var currentLongitude = userInfo["currentLongitude"];
-  getDistrictWithLatLong(currentLatitude, currentLongitude, function(data){
-    if (data != "error"){
-      snapshot.ref.update({"currentDistrictNumber":data["district"], "currentDistrictState":data["state"]});
-    }
-    else{
-      console.log(data);
-    }
-  });
-}, function (errorObject) {
-   console.log("The read failed: " + errorObject.code);
-});
+// userInfoRef.on("child_changed", function(snapshot) {
+//   console.log(snapshot.val());
+//   var userInfo = snapshot.val();
+//   var currentLatitude = userInfo["currentLatitude"];
+//   var currentLongitude = userInfo["currentLongitude"];
+//   getDistrictWithLatLong(currentLatitude, currentLongitude, function(data){
+//     if (data != "error"){
+//       snapshot.ref.update({"currentDistrictNumber":data["district"], "currentDistrictState":data["state"]});
+//     }
+//     else{
+//       console.log(data);
+//     }
+//   });
+// }, function (errorObject) {
+//    console.log("The read failed: " + errorObject.code);
+// });
 
 var FirebaseCloudMessaging = require('fcm-push');
 
@@ -62,18 +62,18 @@ app.use(bodyParser.urlencoded({extended:false}));
 app.post('/updateUserInfo', speakoutRoutes.updateUserInfo);
 app.post('/loadLatestActiveCampaignForUser', speakoutRoutes.loadLatestActiveCampaignForUser);
 app.post('/loadLatestActiveCampaignForLatLong', speakoutRoutes.loadLatestActiveCampaignForLatLong);
-
+app.post('/loadLatestActiveCampaignForAddress', speakoutRoutes.loadLatestActiveCampaignForAddress);
 app.post('/loadStoriesForCampaignBeforeTime', speakoutRoutes.loadStoriesForCampaignBeforeTime);
 app.post('/likeStory', speakoutRoutes.likeStory);
 app.post('/reportStory', speakoutRoutes.reportStory);
 app.post('/recordSpeakout', speakoutRoutes.recordSpeakout);
 app.post('/submitStory', speakoutRoutes.submitStory);
-app.post('/loadCandidatesForEquality', speakoutRoutes.loadCandidatesForEquality);
 app.post('/loadIssuesForAddress', speakoutRoutes.loadIssuesForAddress);
 app.post('/updateStoryImageURLForStory', speakoutRoutes.updateStoryImageURLForStory);
 app.post('/updateStoryAudioURLForStory', speakoutRoutes.updateStoryAudioURLForStory);
 app.post('/getLegislatorInfoAndContactForUser', speakoutRoutes.getLegislatorInfoAndContactForUser);
 app.post('/getCandidatesForAddress', speakoutRoutes.getCandidatesForAddress);
+app.post('/loadLegislatorForCampaignIdWithDivisionId', speakoutRoutes.loadLegislatorForCampaignIdWithDivisionId);
 
 var server = app.listen(process.env.PORT || '8080', function () {
   console.log('App listening on port %s', server.address().port);
@@ -103,6 +103,10 @@ function getDistrictWithLatLong(lat, long, callback){
 function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
+
+// var legislatorOfficesRef = db.ref("campaign/" + "-KSWfR6vOhizHMX4YUZ7/" + "legislatorOffices");
+// var newLegislatorOffices = legislatorOfficesRef.push()
+// newLegislatorOffices.set("ocd-division/country:us/state:ca/cd:14");
 
 
 // var message = {
