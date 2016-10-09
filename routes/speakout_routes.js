@@ -234,7 +234,7 @@ exports.reportStory = function(req, res){
 exports.recordSpeakout = function(req, res){
     var uid = req.body.uid;
     var campaignId = req.body.campaignId;
-    var address = req.body.address;
+    var address = encodeURIComponent(req.body.address);
     var date = moment().unix();
     var userInfoRef = db.ref("userInfo/" + uid);
     userInfoRef.once("value",function(snapshot){
@@ -247,7 +247,6 @@ exports.recordSpeakout = function(req, res){
                 var userInfoRef = db.ref("userInfo/" + uid);
                 userInfoRef.once("value", function(snapshot){
                     snapshot.child("speakoutCampaign/" + campaignId).ref.set(true);
-                    snapshot.child("takeAddedCampaign/" + campaignId).ref.set(true);
                     var newSpeakout = campaignSpeakoutsRef.push();
                     // record most local divisionId that matches thoses listed in campaign
                     var campaignRef = db.ref("campaign/" + campaignId);
@@ -260,11 +259,13 @@ exports.recordSpeakout = function(req, res){
                             var city = data["normalizedInput"]["city"];
                             var state = data["normalizedInput"]["state"];
                             for (var office in offices){
-                                console.log("office[divisionId] in offices is " + office["divisionId"]);
-                                var divisionId = office["divisionId"]
+                                console.log("office in offices is " + offices[office]);
+                                var divisionId = offices[office]["divisionId"]
                                 for (var key in legislatorOffices){
-                                    console.log("key in legislatorOffices is " + key);
-                                    if (divisionId == key && divisionId.length > mostLocalDivisionId.length){
+                                    // console.log("key in legislatorOffices is " + key);
+                                    console.log("divisionId is " + divisionId);
+                                    console.log("legislatorOffice divisionId is " + legislatorOffices[key]);
+                                    if (divisionId == legislatorOffices[key] && divisionId.length > mostLocalDivisionId.length){
                                         mostLocalDivisionId = divisionId;
                                     }
                                 } 
@@ -310,6 +311,8 @@ exports.submitStory = function(req, res){
         "authorState":authorState,
         "likeCount": 0
     });
+    var userInfoRef = db.ref("userInfo/" + authorId);
+    userInfoRef.child("takeAddedCampaign/" + campaignId).set(true);
     return res.send({success:true, message:"story saved", "storyId":newStory.key});
 };
 
@@ -461,7 +464,7 @@ exports.loadLegislatorForCampaignIdWithDivisionId = function(req, res){
             var legislatorRoleString = office["name"];
             var legislatorPhotoURL = legislator["photoUrl"];
             var legislatorPhoneString = legislator["phones"][0];
-            callback({ success : true, message : 'legislator info delivered', legislatorNameString: legislatorNameString, legislatorRoleString:legislatorRoleString, legislatorPhotoURL:legislatorPhotoURL, legislatorPhoneString:legislatorPhoneString});
+            res.send({ success : true, message : 'legislator info delivered', legislatorNameString: legislatorNameString, legislatorRoleString:legislatorRoleString, legislatorPhotoURL:legislatorPhotoURL, legislatorPhoneString:legislatorPhoneString});
         }
         else{
             res.send()
@@ -484,7 +487,8 @@ function getCandidatesForAddress(address, callback){
 }
 
 function getOfficesForAddress(address, callback){
-    var url = "https://www.googleapis.com/civicinfo/v2/representatives?address=" + address + "&includeOffices=true&fields=normalizedInput%2Coffices(divisionId%2Cname)&key=" + googleAPIKey;
+    var url = "https://www.googleapis.com/civicinfo/v2/representatives?address=" + address + "&includeOffices=true&fields=normalizedInput%2Coffices&key={YOUR_API_KEY}";
+    var url = "https://www.googleapis.com/civicinfo/v2/representatives?address=" + address + "&includeOffices=true&fields=offices(divisionId%2Cname)%2CnormalizedInput&key=" + googleAPIKey;
     request(url, function(err, res, body) {
         if (!err && res.statusCode == 200) {
             var responseData = JSON.parse(body);
