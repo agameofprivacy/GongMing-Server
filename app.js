@@ -60,8 +60,6 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended:false}));
 
 app.post('/updateUserInfo', speakoutRoutes.updateUserInfo);
-app.post('/loadLatestActiveCampaignForUser', speakoutRoutes.loadLatestActiveCampaignForUser);
-app.post('/loadLatestActiveCampaignForLatLong', speakoutRoutes.loadLatestActiveCampaignForLatLong);
 app.post('/loadLatestActiveCampaignForAddress', speakoutRoutes.loadLatestActiveCampaignForAddress);
 app.post('/loadStoriesForCampaignBeforeTime', speakoutRoutes.loadStoriesForCampaignBeforeTime);
 app.post('/likeStory', speakoutRoutes.likeStory);
@@ -71,7 +69,6 @@ app.post('/submitStory', speakoutRoutes.submitStory);
 app.post('/loadIssuesForAddress', speakoutRoutes.loadIssuesForAddress);
 app.post('/updateStoryImageURLForStory', speakoutRoutes.updateStoryImageURLForStory);
 app.post('/updateStoryAudioURLForStory', speakoutRoutes.updateStoryAudioURLForStory);
-app.post('/getLegislatorInfoAndContactForUser', speakoutRoutes.getLegislatorInfoAndContactForUser);
 app.post('/getCandidatesForAddress', speakoutRoutes.getCandidatesForAddress);
 app.post('/loadLegislatorForCampaignIdWithDivisionId', speakoutRoutes.loadLegislatorForCampaignIdWithDivisionId);
 
@@ -106,7 +103,7 @@ function getRandomInt(min, max) {
 
 // var legislatorOfficesRef = db.ref("campaign/" + "-KSWfR6vOhizHMX4YUZ7/" + "legislatorOffices");
 // var newLegislatorOffices = legislatorOfficesRef.push()
-// newLegislatorOffices.set("ocd-division/country:us/state:ca/cd:14");
+// newLegislatorOffices.set("ocd-division/country:us/state:ca/cd:12");
 
 
 // var message = {

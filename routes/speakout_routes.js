@@ -12,36 +12,6 @@ exports.updateUserInfo = function(req, res){
     return res.send({success:true, message:"default message"});
 };
 
-exports.loadLatestActiveCampaignForUser = function(req, res){
-    var requestParameters = req.body;
-    var uid = requestParameters.uid;
-    var userInfoRef = db.ref("userInfo/" + uid);
-    userInfoRef.once("value", function(snapshot) {
-        var districtString = snapshot.val()["currentDistrictState"] + "-" + snapshot.val()["currentDistrictNumber"];
-        var campaignRef = db.ref("campaign");
-        campaignRef.orderByChild("active").equalTo(true).once("value", function(snapshot){
-            if (snapshot.numChildren() > 0) {
-                var campaignExamined = 0;
-                snapshot.forEach(function(campaign) {
-                    for(var district in campaign.val()["districts"]){
-                        if (district == districtString){
-                            return res.send({success:true, campaign:campaign.val(), campaignId:campaign.key});     
-                        }
-                    }
-                    campaignExamined++;
-                    if (campaignExamined == snapshot.numChildren()){
-                        return res.send({success:false, message:"no active campaigns with applicable district coverage"});
-                    }
-                });
-
-            }
-            else{
-                return res.send({success:false, message:"no active campaigns"});     
-            }
-        });
-    });
-};
-
 exports.loadLatestActiveCampaignForAddress = function (req, res){
     var address = encodeURIComponent(req.body.address);
     getOfficesForAddress(address, function(data){
@@ -56,27 +26,26 @@ exports.loadLatestActiveCampaignForAddress = function (req, res){
                 }
             }
             for (var i = 0; i < divisionsArray.length; i++){
+
                 var officeOCD = divisionsArray[i];
                 var campaignsRef = db.ref("campaign")
                 campaignsRef.orderByChild("divisionId").equalTo(officeOCD).once("value", function(snapshot){
                     if (snapshot.numChildren() > 0) {
                         var campaignCount = 0
-                        for (var i = 0; i < snapshot.numChildren(); i++){
-                            var snapshotObject = snapshot.val();
-                            for (var campaignObject in snapshotObject){
-                                var campaign = snapshotObject[campaignObject];
-                                console.log("campaign is :" + campaignObject);
-                                campaign["key"] = campaignObject;
-                                if (campaignsList.indexOf(campaign) == -1){
-                                    campaignsList.push(campaign); 
-                                }
-                                campaignCount++;
-                                if (campaignCount == snapshot.numChildren()){
-                                    numberOfDivisionProcessed++;
-                                    if (numberOfDivisionProcessed == divisionsArray.length){
-                                        campaignsList = sortCampaignsByOfficeLevel(campaignsList, true);
-                                        res.send({success:true, campaignsList: campaignsList, normalizedAddress:normalizedAddress, message:"candidates are found"});
-                                    }
+                        var snapshotObject = snapshot.val();
+                        for (var campaignObject in snapshotObject){
+                            var campaign = snapshotObject[campaignObject];
+                            campaign["key"] = campaignObject;
+                            console.log("campaign is " + campaign["active"]);
+                            if (campaignsList.indexOf(campaign) == -1 && campaign["active"]){
+                                campaignsList.push(campaign); 
+                            }
+                            campaignCount++;
+                            if (campaignCount == snapshot.numChildren()){
+                                numberOfDivisionProcessed++;
+                                if (numberOfDivisionProcessed == divisionsArray.length){
+                                    campaignsList = sortCampaignsByOfficeLevel(campaignsList, true);
+                                    res.send({success:true, campaignsList: campaignsList, normalizedAddress:normalizedAddress, message:"candidates are found"});
                                 }
                             }
                         }
@@ -100,87 +69,94 @@ exports.loadLatestActiveCampaignForAddress = function (req, res){
     });
 };
 
-exports.loadLatestActiveCampaignForLatLong = function(req, res){
-    var latitude = req.body.latitude;
-    var longitude = req.body.longitude;
-    getDistrictWithLatLong(latitude, longitude, function(data){
-        if (data != "error"){
-            var districtString = data["state"] + "-" + data["district"];
-            var campaignRef = db.ref("campaign");
-            campaignRef.orderByChild("active").equalTo(true).once("value", function(snapshot){
-                if (snapshot.numChildren() > 0) {
-                    var campaignExamined = 0;
-                    snapshot.forEach(function(campaign) {
-                        for(var district in campaign.val()["districts"]){
-                            if (district == districtString){
-                                return res.send({success:true, campaign:campaign.val(), campaignId:campaign.key});     
-                            }
-                        }     
-                        campaignExamined++;
-                        if (campaignExamined == snapshot.numChildren()){
-                            return res.send({success:false, message:"no active campaigns with applicable district coverage"});
-                        }
-
-                    });
-                }
-                else{
-                    return res.send({success:false, message:"no active campaigns"});     
-                }
-            });
-        }
-        else{
-        }
-    });
-};
-
-
 exports.loadStoriesForCampaignBeforeTime = function(req, res){
     var campaignId = req.body.campaignId;
     var beforeTime = req.body.beforeTime;
     var initialLoad = req.body.initialLoad;
+    var sortMethod = req.body.sortMethod;
     var storyRef = db.ref("story/" + campaignId);
+
     var numStories = 10;
+    var noMoreStories;
+    var stories;
+    var storiesList = [];
+
     if (initialLoad){
         numStories = numStories - 1;
     }
-    
-    storyRef.orderByChild("date").endAt(beforeTime).limitToLast(numStories + 1).once("value", function(snapshot){
-        var noMoreStories;
-        var stories;
-        var storiesList = [];
-        if (snapshot.numChildren() > 1){
-            stories = snapshot.val();
-            console.log(stories);
-            if (!initialLoad){
-                var index = 0;
-                var indexToDelete;
-                var keyOfStoryToDelete;
-                for (var story in stories){
-                    if (stories[story]["date"] == beforeTime){
-                        keyOfStoryToDelete = story;
-                        delete stories[keyOfStoryToDelete];
+    var topStory;
+    storyRef.orderByChild("likeCount").limitToLast(1).once("value", function(snapshot){
+        if (snapshot.numChildren() > 0){
+            for (var story in snapshot.val()){
+                topStory = snapshot.val();
+            }
+            if (stories != null){
+                return res.send({success:true, message:"stories found", stories:stories, noMoreStories:noMoreStories, topStory:topStory});
+            }
+        }
+        else{
+            if (stories != null){
+                return res.send({success:true, message:"stories found", stories:stories, noMoreStories:noMoreStories, topStory:null});
+            }
+        }
+    });
+    if (sortMethod == "Recent"){
+        storyRef.orderByChild("date").endAt(beforeTime).limitToLast(numStories + 1).once("value", function(snapshot){
+            if (snapshot.numChildren() > 1){
+                stories = snapshot.val();
+                if (!initialLoad){
+                    var index = 0;
+                    var indexToDelete;
+                    var keyOfStoryToDelete;
+                    for (var story in stories){
+                        if (stories[story]["date"] == beforeTime){
+                            keyOfStoryToDelete = story;
+                            delete stories[keyOfStoryToDelete];
+                        }
+                        index++;
                     }
-                    index++;
+                }
+                if (stories.length < numStories + 1){
+                    noMoreStories = true;
+                }
+                else{
+                    noMoreStories = false;
+                }
+                for (var story in stories){
+                    var storyToPush = stories[story]
+                    storyToPush["key"] = story;
+                    storiesList.push(storyToPush);
+                }
+                stories = sortStoriesByDate(storiesList, true);
+                if (topStory != null){ 
+                    return res.send({success:true, message:"stories found", stories:stories, noMoreStories:noMoreStories, topStory:topStory});
                 }
             }
-            if (stories.length < numStories + 1){
-                noMoreStories = true;
-            }
-            else{
-                noMoreStories = false;
-            }
-            console.log(stories);
-            for (var story in stories){
-                storiesList.push(stories[story]);
-            }
-            stories = sortStoriesByDate(storiesList, true);
-            return res.send({success:true, message:"stories found", stories:stories, noMoreStories:noMoreStories});
-
+        else{
+            return res.send({success:false, message:"no more stories found", stories:null, noMoreStories:true, topStory:null});
         }
-    else{
-        return res.send({success:false, message:"no more stories found", stories:null, noMoreStories:true});
+        });
     }
-    });
+    else{
+        storyRef.orderByChild("likeCount").limitToLast(100).once("value", function(snapshot){
+            if (snapshot.numChildren() > 1){
+                stories = snapshot.val();
+                for (var story in stories){
+                    var storyToPush = stories[story]
+                    storyToPush["key"] = story;
+                    storiesList.push(storyToPush);
+                }
+                stories = sortStoriesByLikeCount(storiesList, true);
+                if (topStory != null){ 
+                    return res.send({success:true, message:"stories found", stories:stories, noMoreStories:true, topStory:topStory});
+                }
+            }
+        else{
+            return res.send({success:false, message:"no more stories found", stories:null, noMoreStories:true, topStory:null});
+        }
+        });
+
+    }
 };
 
 exports.likeStory = function(req, res){
@@ -192,32 +168,85 @@ exports.likeStory = function(req, res){
         // snapshot.ref.child("likedBy" + "/" + uid).set(true);
         // check if story is in userInfo's likedStories'
         var likedBefore;
-        var action;
         var userInfoRef = db.ref("userInfo/" + uid);
+        var action = "";
         userInfoRef.once("value",function(userInfoSnapshot){
             var likedStoriesRef = userInfoSnapshot.ref.child("likedStories")
             likedStoriesRef.once("value", function(likedStoriesSnapshot){
-                likedStoriesSnapshot.forEach(function(story) {
-                    if (story.ref.key == storyId){
-                        story.ref.remove();
-                        likedBefore = true;
-                        action = "unliked";
-                    }
-                });
-            });
-            if (!likedBefore){
-                
-                // else, save story in userInfo's likedStories' and increment likeCount, and append to likedBy
-                likedStoriesRef.child(storyId).set(true);
+                if (likedStoriesSnapshot.numChildren() > 0){
+                    var index = 0;
+                    for (var storyKey in likedStoriesSnapshot.val()){
+                        index++;
+                        var story = likedStoriesSnapshot.val()[storyKey];
+                        if (storyKey == storyId){
+                            likedStoriesRef.child(storyKey).remove();
+                            likedBefore = true;
+                            action = "unliked";
+                            return res.send({success:true, message:"successfully unliked", action:action});
+                        }
+                        console.log("index is " + index);
+                        if (index == likedStoriesSnapshot.numChildren()){
+                            if (!likedBefore){
+                                action = "liked";
+                                // else, save story in userInfo's likedStories' and increment likeCount, and append to likedBy
+                                likedStoriesRef.child(storyId).set(true);
+                                var currentLikeCount = storyRefSnapshot.val()["likeCount"];
+                                storyRefSnapshot.ref.update({likeCount:currentLikeCount + 1});
+                                console.log("uid of liker is " + uid);
+                                storyRefSnapshot.ref.child("likedBy/" + uid).set(true);
+                                // record user activtiy in client user
+                                var likerActivityRef = db.ref("userActivity/" + uid);
+                                var newActivity = likerActivityRef.push();
+                                var storyAuthorId = req.body.storyAuthorId;
+                                var storyAuthorDisplayName = req.body.storyAuthorDisplayName;
+                                var campaignGeoTitle = req.body.campaignGeoTitle;
+                                var campaignFullTitle = req.body.campaignFullTitle;
 
-                var currentLikeCount = storyRefSnapshot.val()["likeCount"];
-                action = "liked";
-                storyRefSnapshot.ref.update({likeCount:currentLikeCount + 1});
-                storyRefSnapshot.ref.child("likedBy").update({uid:true});
-            }
-            return res.send({success:true, message:"successfully liked or unliked", action:action});
+                                newActivity.set({
+                                    action:"like"                    
+                                });
+                                newActivity.child("storyAuthorId").set(storyAuthorId);
+                                newActivity.child("storyAuthorDisplayName").set(storyAuthorDisplayName);
+                                newActivity.child("campaignGeoTitle").set(campaignGeoTitle);
+                                newActivity.child("campaignFullTitle").set(campaignFullTitle);
+                                newActivity.child("date").set(moment().unix());
+
+                            }
+                            
+                            return res.send({success:true, message:"successfully liked or unliked", action:action});
+                        }
+                    } 
+                }
+                else{
+                    action = "liked";
+                    // else, save story in userInfo's likedStories' and increment likeCount, and append to likedBy
+                    likedStoriesRef.child(storyId).set(true);
+                    var currentLikeCount = storyRefSnapshot.val()["likeCount"];
+                    storyRefSnapshot.ref.update({likeCount:currentLikeCount + 1});
+                    console.log("uid of liker is " + uid);
+                    storyRefSnapshot.ref.child("likedBy/" + uid).set(true);
+                    // record user activtiy in client user
+                    var likerActivityRef = db.ref("userActivity/" + uid);
+                    var newActivity = likerActivityRef.push();
+                    var storyAuthorId = req.body.storyAuthorId;
+                    var storyAuthorDisplayName = req.body.storyAuthorDisplayName;
+                    var campaignGeoTitle = req.body.campaignGeoTitle;
+                    var campaignFullTitle = req.body.campaignFullTitle;
+                    newActivity.set({
+                        action:"like"                    
+                    });
+                    newActivity.child("storyAuthorId").set(storyAuthorId);
+                    newActivity.child("storyAuthorDisplayName").set(storyAuthorDisplayName);
+                    newActivity.child("campaignGeoTitle").set(campaignGeoTitle);
+                    newActivity.child("campaignFullTitle").set(campaignFullTitle);
+                    newActivity.child("date").set(moment().unix());
+                }
+                
+            });
         });
     });
+
+    // record user activity in story author user
 };
 
 exports.reportStory = function(req, res){
@@ -390,20 +419,6 @@ exports.updateStoryAudioURLForStory = function(req, res){
     
 };
 
-exports.getLegislatorInfoAndContactForUser = function(req, res){
-    var uid = req.body.uid;
-    var userInfoRef = db.ref("userInfo/" + uid);
-    userInfoRef.once("value", function(snapshot){
-        var currentLatitude = snapshot.val()["currentLatitude"];
-        var currentLongitude = snapshot.val()["currentLongitude"];
-        getLegislatorInfoWithLatLong(currentLatitude, currentLongitude, function(data){
-            return res.send(data);
-        });
-    });
-}
-
-
-
 exports.getCandidatesForAddress = function(req, res){
     var address = encodeURIComponent(req.body.address);
     getCandidatesForAddress(address, function(data){
@@ -464,6 +479,7 @@ exports.loadLegislatorForCampaignIdWithDivisionId = function(req, res){
             var legislatorRoleString = office["name"];
             var legislatorPhotoURL = legislator["photoUrl"];
             var legislatorPhoneString = legislator["phones"][0];
+            console.log(legislatorPhoneString);
             res.send({ success : true, message : 'legislator info delivered', legislatorNameString: legislatorNameString, legislatorRoleString:legislatorRoleString, legislatorPhotoURL:legislatorPhotoURL, legislatorPhoneString:legislatorPhoneString});
         }
         else{
@@ -505,7 +521,6 @@ function getOfficesForAddress(address, callback){
 function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
-
 function getLegislatorInfoForCampaignId(campaignId, callback){
     var campaignRef = db.ref("campaign/" + campaignId)
     campaignRef.once("value", function(snapshot){
@@ -516,68 +531,6 @@ function getLegislatorInfoForCampaignId(campaignId, callback){
         console.log(legislatorOffice);
     });
 }
-
-function getLegislatorInfoWithLatLong(currentLatitude, currentLongitude, callback){
-        var url = "http://congress.api.sunlightfoundation.com/legislators/locate?apikey=" + sunlightAPIKey;
-        request(url + '&latitude=' + currentLatitude + '&longitude=' + currentLongitude, function(err, res, body) {
-            if (!err && res.statusCode == 200) {
-                var responseData = JSON.parse(body).results;
-                if (responseData.length > 0){
-                    var legislator = responseData[getRandomInt(0,responseData.length - 1)];
-                    var legislatorName = legislator["first_name"] + " " + legislator["last_name"];
-                    var legislatorTitle = legislator["title"];
-                    var legislatorStateName = legislator["state_name"];
-                    var legislatorDistrict = legislator["district"];
-                    var chamberFullDictionry = {"senate":"U.S. Senate", "house":"U.S. House of Representatives"};
-                    var legislatorChamber = chamberFullDictionry[legislator["chamber"]];
-                    var legislatorDistrictString;
-                    switch (legislatorDistrict) {
-                        case null:
-                            legislatorDistrictString = legislatorStateName + "";
-                            break;
-                        case 1:
-                            legislatorDistrictString = legislatorStateName + "'s 1st District";
-                            break;
-                        case 2:
-                            legislatorDistrictString = legislatorStateName + "'s 2nd District";
-                            break;
-                        case 3:
-                            legislatorDistrictString = legislatorStateName + "'s 3rd District";
-                            break;                    
-                        default:
-                            legislatorDistrictString = legislatorStateName + "'s " + legislatorDistrict + "th District";
-                            break;
-                    }
-                    var legislatorNameString = legislatorTitle + " " + legislatorName;
-                    var legislatorRoleString = legislatorChamber + ", " + legislatorDistrictString;
-                    var legislatorPhotoURL = "https://theunitedstates.io/images/congress/450x550/" + legislator["bioguide_id"] + ".jpg";
-                    var legislatorPhoneString = legislator["phone"];
-                    callback({ success : true, message : 'legislator info delivered', legislatorNameString: legislatorNameString, legislatorRoleString:legislatorRoleString, legislatorPhotoURL:legislatorPhotoURL, legislatorPhoneString:legislatorPhoneString});
-                }
-            }
-            else{
-                console.log(err);
-            }
-        });
-
-
-}
-
-function getDistrictWithLatLong(lat, long, callback){
-    var url = "http://congress.api.sunlightfoundation.com/districts/locate?apikey=" + sunlightAPIKey;
-    request(url + '&latitude=' + lat + '&longitude=' + long, function(err, res, body) {
-        if (!err && res.statusCode == 200) {
-            var responseData = JSON.parse(body).results[0];
-            callback(responseData);
-        }
-        else{
-            console.log(err);
-            callback("error");
-        }
-    });
-
-};
-
 
 function sortCandidatesByOfficeLevel(candidatesList, desc){
     // var candidatesArray = [];
@@ -615,6 +568,19 @@ function sortStoriesByDate(stories, desc){
     });
     return stories;
 }
+
+function sortStoriesByLikeCount(stories, desc){
+    // var candidatesArray = [];
+    // for (var candidate in candidatesList){
+    //     candidatesArray.push(candidatesList[candidate]);
+    // }
+    // console.log(candidatesArray);
+    stories.sort(function(a, b){
+        return b.likeCount - a.likeCount;
+    });
+    return stories;
+}
+
 
 
 function getLegislatorInfoForCampaignIdAndDivisionId(campaignId, divisionId, callback){
