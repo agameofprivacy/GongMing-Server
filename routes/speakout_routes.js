@@ -7,11 +7,6 @@ var request = app.request;
 var sunlightAPIKey = app.sunlightAPIKey;
 var googleAPIKey = app.googleAPIKey;
 
-exports.updateUserInfo = function(req, res){
-    var requestParameters = req.body;
-    return res.send({success:true, message:"default message"});
-};
-
 exports.loadLatestActiveCampaignForAddress = function (req, res){
     var address = encodeURIComponent(req.body.address);
     getOfficesForAddress(address, function(data){
@@ -163,87 +158,111 @@ exports.likeStory = function(req, res){
     var campaignId = req.body.campaignId;
     var storyId = req.body.storyId;
     var uid = req.body.uid;
-    var storyRef = db.ref("story/" + campaignId + "/" + storyId);
-    storyRef.once("value", function(storyRefSnapshot){
-        // snapshot.ref.child("likedBy" + "/" + uid).set(true);
-        // check if story is in userInfo's likedStories'
-        var likedBefore;
-        var userInfoRef = db.ref("userInfo/" + uid);
-        var action = "";
-        userInfoRef.once("value",function(userInfoSnapshot){
-            var likedStoriesRef = userInfoSnapshot.ref.child("likedStories")
-            likedStoriesRef.once("value", function(likedStoriesSnapshot){
-                if (likedStoriesSnapshot.numChildren() > 0){
-                    var index = 0;
-                    for (var storyKey in likedStoriesSnapshot.val()){
-                        index++;
-                        var story = likedStoriesSnapshot.val()[storyKey];
-                        if (storyKey == storyId){
-                            likedStoriesRef.child(storyKey).remove();
-                            likedBefore = true;
-                            action = "unliked";
-                            return res.send({success:true, message:"successfully unliked", action:action});
-                        }
-                        console.log("index is " + index);
-                        if (index == likedStoriesSnapshot.numChildren()){
-                            if (!likedBefore){
-                                action = "liked";
-                                // else, save story in userInfo's likedStories' and increment likeCount, and append to likedBy
-                                likedStoriesRef.child(storyId).set(true);
-                                var currentLikeCount = storyRefSnapshot.val()["likeCount"];
-                                storyRefSnapshot.ref.update({likeCount:currentLikeCount + 1});
-                                console.log("uid of liker is " + uid);
-                                storyRefSnapshot.ref.child("likedBy/" + uid).set(true);
-                                // record user activtiy in client user
-                                var likerActivityRef = db.ref("userActivity/" + uid);
-                                var newActivity = likerActivityRef.push();
-                                var storyAuthorId = req.body.storyAuthorId;
-                                var storyAuthorDisplayName = req.body.storyAuthorDisplayName;
-                                var campaignGeoTitle = req.body.campaignGeoTitle;
-                                var campaignFullTitle = req.body.campaignFullTitle;
+    var idToken = req.body.idToken;
+    firebase.auth().verifyIdToken(idToken).then(function(decodedToken) {
+        if (uid == decodedToken.uid){
+            var storyRef = db.ref("story/" + campaignId + "/" + storyId);
+            storyRef.once("value", function(storyRefSnapshot){
+                // snapshot.ref.child("likedBy" + "/" + uid).set(true);
+                // check if story is in userInfo's likedStories'
+                var likedBefore;
+                var userInfoRef = db.ref("userInfo/" + uid);
+                var action = "";
+                userInfoRef.once("value",function(userInfoSnapshot){
+                    var likedStoriesRef = userInfoSnapshot.ref.child("likedStories")
+                    likedStoriesRef.once("value", function(likedStoriesSnapshot){
+                        if (likedStoriesSnapshot.numChildren() > 0){
+                            var index = 0;
+                            for (var storyKey in likedStoriesSnapshot.val()){
+                                index++;
+                                var story = likedStoriesSnapshot.val()[storyKey];
+                                if (storyKey == storyId){
+                                    likedStoriesRef.child(storyKey).remove();
+                                    likedBefore = true;
+                                    action = "unliked";
+                                    return res.send({success:true, message:"successfully unliked", action:action});
+                                }
+                                console.log("index is " + index);
+                                if (index == likedStoriesSnapshot.numChildren()){
+                                    if (!likedBefore){
+                                        action = "liked";
+                                        // else, save story in userInfo's likedStories' and increment likeCount, and append to likedBy
+                                        likedStoriesRef.child(storyId).set(true);
+                                        var currentLikeCount = storyRefSnapshot.val()["likeCount"];
+                                        storyRefSnapshot.ref.update({likeCount:currentLikeCount + 1});
+                                        console.log("uid of liker is " + uid);
+                                        storyRefSnapshot.ref.child("likedBy/" + uid).set(true);
+                                        // record user activtiy in client user
+                                        var likerActivityRef = db.ref("userActivity/" + uid);
+                                        var newActivity = likerActivityRef.push();
+                                        var storyAuthorId = req.body.storyAuthorId;
+                                        var storyAuthorDisplayName = req.body.storyAuthorDisplayName;
+                                        var campaignGeoTitle = req.body.campaignGeoTitle;
+                                        var campaignFullTitle = req.body.campaignFullTitle;
 
-                                newActivity.set({
-                                    action:"like"                    
-                                });
-                                newActivity.child("storyAuthorId").set(storyAuthorId);
-                                newActivity.child("storyAuthorDisplayName").set(storyAuthorDisplayName);
-                                newActivity.child("campaignGeoTitle").set(campaignGeoTitle);
-                                newActivity.child("campaignFullTitle").set(campaignFullTitle);
-                                newActivity.child("date").set(moment().unix());
-
-                            }
-                            
-                            return res.send({success:true, message:"successfully liked or unliked", action:action});
+                                        newActivity.set({
+                                            action:"like"                    
+                                        });
+                                        newActivity.child("storyAuthorId").set(storyAuthorId);
+                                        newActivity.child("storyAuthorDisplayName").set(storyAuthorDisplayName);
+                                        newActivity.child("storyId").set(storyId);
+                                        newActivity.child("campaignGeoTitle").set(campaignGeoTitle);
+                                        newActivity.child("campaignFullTitle").set(campaignFullTitle);
+                                        newActivity.child("date").set(moment().unix());
+                                        
+                                        var receiverActivityRef = db.ref("userActivity/" + storyAuthorId);
+                                        var newReceiverActivity = receiverActivityRef.push();
+                                        var likerDisplayName = req.body.likerDisplayName;
+                                        newReceiverActivity.set({
+                                            action:"liked"
+                                        });
+                                        newReceiverActivity.child("likerId").set(uid);
+                                        newReceiverActivity.child("likerDisplayName").set(likerDisplayName);
+                                        newReceiverActivity.child("storyId").set(storyId);
+                                        newReceiverActivity.child("campaignGeoTitle").set(campaignGeoTitle);
+                                        newReceiverActivity.child("campaignFullTitle").set(campaignFullTitle);
+                                        newReceiverActivity.child("date").set(moment().unix());
+                                    }
+                                    
+                                    return res.send({success:true, message:"successfully liked or unliked", action:action});
+                                }
+                            } 
                         }
-                    } 
-                }
-                else{
-                    action = "liked";
-                    // else, save story in userInfo's likedStories' and increment likeCount, and append to likedBy
-                    likedStoriesRef.child(storyId).set(true);
-                    var currentLikeCount = storyRefSnapshot.val()["likeCount"];
-                    storyRefSnapshot.ref.update({likeCount:currentLikeCount + 1});
-                    console.log("uid of liker is " + uid);
-                    storyRefSnapshot.ref.child("likedBy/" + uid).set(true);
-                    // record user activtiy in client user
-                    var likerActivityRef = db.ref("userActivity/" + uid);
-                    var newActivity = likerActivityRef.push();
-                    var storyAuthorId = req.body.storyAuthorId;
-                    var storyAuthorDisplayName = req.body.storyAuthorDisplayName;
-                    var campaignGeoTitle = req.body.campaignGeoTitle;
-                    var campaignFullTitle = req.body.campaignFullTitle;
-                    newActivity.set({
-                        action:"like"                    
+                        else{
+                            action = "liked";
+                            // else, save story in userInfo's likedStories' and increment likeCount, and append to likedBy
+                            likedStoriesRef.child(storyId).set(true);
+                            var currentLikeCount = storyRefSnapshot.val()["likeCount"];
+                            storyRefSnapshot.ref.update({likeCount:currentLikeCount + 1});
+                            console.log("uid of liker is " + uid);
+                            storyRefSnapshot.ref.child("likedBy/" + uid).set(true);
+                            // record user activtiy in client user
+                            var likerActivityRef = db.ref("userActivity/" + uid);
+                            var newActivity = likerActivityRef.push();
+                            var storyAuthorId = req.body.storyAuthorId;
+                            var storyAuthorDisplayName = req.body.storyAuthorDisplayName;
+                            var campaignGeoTitle = req.body.campaignGeoTitle;
+                            var campaignFullTitle = req.body.campaignFullTitle;
+                            newActivity.set({
+                                action:"like"                    
+                            });
+                            newActivity.child("storyAuthorId").set(storyAuthorId);
+                            newActivity.child("storyAuthorDisplayName").set(storyAuthorDisplayName);
+                            newActivity.child("campaignGeoTitle").set(campaignGeoTitle);
+                            newActivity.child("campaignFullTitle").set(campaignFullTitle);
+                            newActivity.child("date").set(moment().unix());
+                        }
+                        
                     });
-                    newActivity.child("storyAuthorId").set(storyAuthorId);
-                    newActivity.child("storyAuthorDisplayName").set(storyAuthorDisplayName);
-                    newActivity.child("campaignGeoTitle").set(campaignGeoTitle);
-                    newActivity.child("campaignFullTitle").set(campaignFullTitle);
-                    newActivity.child("date").set(moment().unix());
-                }
-                
+                });
             });
-        });
+        }
+        else{
+            console.log("token invalid");
+        }
+    }).catch(function(error) {
+    // Handle error
+        console.log(error);
     });
 
     // record user activity in story author user
@@ -253,68 +272,102 @@ exports.reportStory = function(req, res){
     var campaignId = req.body.campaignId;
     var storyId = req.body.storyId;
     var uid = req.body.uid;
-    var storyRef = db.ref("story/" + campaignId + "/" + storyId);
-    storyRef.once("value", function(snapshot){
-        snapshot.ref.child("markedInappropriateBy" + "/" + uid).set(true); 
+    var idToken = req.body.idToken;
+    firebase.auth().verifyIdToken(idToken).then(function(decodedToken) {
+        if (uid == decodedToken.uid){
+            var storyRef = db.ref("story/" + campaignId + "/" + storyId);
+            storyRef.once("value", function(snapshot){
+                snapshot.ref.child("markedInappropriateBy" + "/" + uid).set(true); 
+            });
+            return res.send({success:true, message:"successfully reported"});
+        }
+        else{
+            console.log("token invalid");
+        }
     });
-    return res.send({success:true, message:"successfully reported"});
 };
 
 exports.recordSpeakout = function(req, res){
     var uid = req.body.uid;
-    var campaignId = req.body.campaignId;
-    var address = encodeURIComponent(req.body.address);
-    var date = moment().unix();
-    var userInfoRef = db.ref("userInfo/" + uid);
-    userInfoRef.once("value",function(snapshot){
-        var campaignSpeakoutsRef = db.ref("speakout/"+ campaignId);
-        campaignSpeakoutsRef.orderByChild("author").equalTo(uid).once("value", function(snapshot){
-            if (snapshot.numChildren() > 0){
-                return res.send({success:false, message:"you already spoke out on this campaign"});
-            }
-            else{
-                var userInfoRef = db.ref("userInfo/" + uid);
-                userInfoRef.once("value", function(snapshot){
-                    snapshot.child("speakoutCampaign/" + campaignId).ref.set(true);
-                    var newSpeakout = campaignSpeakoutsRef.push();
-                    // record most local divisionId that matches thoses listed in campaign
-                    var campaignRef = db.ref("campaign/" + campaignId);
-                    campaignRef.once("value", function(snapshot){
-                        var campaign = snapshot.val();
-                        var legislatorOffices = campaign["legislatorOffices"];
-                        var mostLocalDivisionId = "";
-                        getOfficesForAddress(address, function(data){
-                            var offices = data["offices"];
-                            var city = data["normalizedInput"]["city"];
-                            var state = data["normalizedInput"]["state"];
-                            for (var office in offices){
-                                console.log("office in offices is " + offices[office]);
-                                var divisionId = offices[office]["divisionId"]
-                                for (var key in legislatorOffices){
-                                    // console.log("key in legislatorOffices is " + key);
-                                    console.log("divisionId is " + divisionId);
-                                    console.log("legislatorOffice divisionId is " + legislatorOffices[key]);
-                                    if (divisionId == legislatorOffices[key] && divisionId.length > mostLocalDivisionId.length){
-                                        mostLocalDivisionId = divisionId;
+    var idToken = req.body.idToken;
+    firebase.auth().verifyIdToken(idToken).then(function(decodedToken) {
+        if (uid == decodedToken.uid){
+            var campaignId = req.body.campaignId;
+            var address = encodeURIComponent(req.body.address);
+            var date = moment().unix();
+            var userInfoRef = db.ref("userInfo/" + uid);
+            userInfoRef.once("value",function(snapshot){
+                var campaignSpeakoutsRef = db.ref("speakout/"+ campaignId);
+                campaignSpeakoutsRef.orderByChild("author").equalTo(uid).once("value", function(snapshot){
+                    if (snapshot.numChildren() > 0){
+                        return res.send({success:false, message:"you already spoke out on this campaign"});
+                    }
+                    else{
+                        var userInfoRef = db.ref("userInfo/" + uid);
+                        userInfoRef.once("value", function(snapshot){
+                            snapshot.child("speakoutCampaign/" + campaignId).ref.set(true);
+                            var newSpeakout = campaignSpeakoutsRef.push();
+                            // record most local divisionId that matches thoses listed in campaign
+                            var campaignRef = db.ref("campaign/" + campaignId);
+                            campaignRef.once("value", function(snapshot){
+                                var campaign = snapshot.val();
+                                var legislatorOffices = campaign["legislatorOffices"];
+                                var mostLocalDivisionId = "";
+                                getOfficesForAddress(address, function(data){
+                                    var offices = data["offices"];
+                                    var city = data["normalizedInput"]["city"];
+                                    var state = data["normalizedInput"]["state"];
+                                    for (var office in offices){
+                                        console.log("office in offices is " + offices[office]);
+                                        var divisionId = offices[office]["divisionId"]
+                                        for (var key in legislatorOffices){
+                                            // console.log("key in legislatorOffices is " + key);
+                                            console.log("divisionId is " + divisionId);
+                                            console.log("legislatorOffice divisionId is " + legislatorOffices[key]);
+                                            if (divisionId == legislatorOffices[key] && divisionId.length > mostLocalDivisionId.length){
+                                                mostLocalDivisionId = divisionId;
+                                            }
+                                        } 
                                     }
-                                } 
-                            }
-                            if (mostLocalDivisionId != ""){
-                                newSpeakout.set({
-                                    "author":uid,
-                                    "date":date,
-                                    "divisionId":mostLocalDivisionId
+                                    if (mostLocalDivisionId != ""){
+                                        newSpeakout.set({
+                                            "author":uid,
+                                            "date":date,
+                                            "divisionId":mostLocalDivisionId
+                                        });
+                                        userInfoRef.update({
+                                            divisionId:mostLocalDivisionId,
+                                            city:city,
+                                            state:state
+                                        });
+                                        return res.send({success:true, message:"speakout recorded", shouldPromptForStory:true, divisionId:mostLocalDivisionId, city:city, state:state});
+                                    }
+                                    else{
+                                        return res.send({success:true, message:"speakout recorded", shouldPromptForStory:false});    
+                                    }
                                 });
-                                return res.send({success:true, message:"speakout recorded", shouldPromptForStory:true, divisionId:mostLocalDivisionId, city:city, state:state});
-                            }
-                            else{
-                                return res.send({success:true, message:"speakout recorded", shouldPromptForStory:false});    
-                            }
+                            });
                         });
-                    });
+                        var userActivityRef = db.ref("userActivity/" + uid);
+                        var newSpeakoutActivity = userActivityRef.push();
+                        var position = req.body.position;
+                        var campaignGeoTitle = req.body.campaignGeoTitle;
+                        var campaignFullTitle = req.body.campaignFullTitle;
+                        newSpeakoutActivity.set({
+                            action:"speakout"
+                        });
+                        newSpeakoutActivity.child("campaignId").set(campaignId);
+                        newSpeakoutActivity.child("campaignGeoTitle").set(campaignGeoTitle);
+                        newSpeakoutActivity.child("campaignFullTitle").set(campaignFullTitle);
+                        newSpeakoutActivity.child("position").set(position);
+                        newSpeakoutActivity.child("date").set(moment().unix());
+                    }
                 });
-            }
-        });
+            });
+        }
+        else{
+            console.log("token invalid");
+        }
     });
 
 };
@@ -330,19 +383,29 @@ exports.submitStory = function(req, res){
     var authorState = req.body.authorState;
     var storyRef = db.ref("story/" + campaignId);
     var newStory = storyRef.push();
-    newStory.set({
-        "authorId":authorId,
-        "authorDisplayName":authorDisplayName,
-        "date":date,
-        "textNarrative":textNarrative,
-        "authorPhotoURL":authorPhotoURL,
-        "authorCity":authorCity,
-        "authorState":authorState,
-        "likeCount": 0
+    var uid = req.body.uid;
+    var idToken = req.body.idToken;
+    firebase.auth().verifyIdToken(idToken).then(function(decodedToken) {
+        if (uid == decodedToken.uid){
+            newStory.set({
+                "authorId":authorId,
+                "authorDisplayName":authorDisplayName,
+                "date":date,
+                "textNarrative":textNarrative,
+                "authorPhotoURL":authorPhotoURL,
+                "authorCity":authorCity,
+                "authorState":authorState,
+                "likeCount": 0
+            });
+            var userInfoRef = db.ref("userInfo/" + authorId);
+            userInfoRef.child("takeAddedCampaign/" + campaignId).set(true);
+            return res.send({success:true, message:"story saved", "storyId":newStory.key});
+        }
+        else{
+            console.log("token invalid");
+        }
     });
-    var userInfoRef = db.ref("userInfo/" + authorId);
-    userInfoRef.child("takeAddedCampaign/" + campaignId).set(true);
-    return res.send({success:true, message:"story saved", "storyId":newStory.key});
+
 };
 
 
@@ -351,7 +414,6 @@ exports.loadIssuesForAddress = function(req, res){
     getCandidatesForAddress(address, function(data){
         if (data != "error"){
             var normalizedAddress = data["normalizedInput"]["line1"] + ", " + data["normalizedInput"]["city"];
-
             var issuesList = [];
             var numberOfDivisionProcessed = 0;
             var searchOffice = [];
@@ -396,27 +458,44 @@ exports.loadIssuesForAddress = function(req, res){
 }
 
 exports.updateStoryImageURLForStory = function(req, res){
-    var storyId = req.body.storyId;
-    var storyImageURL = req.body.storyImageURL;
-    var campaignId = req.body.campaignId;
-    var storyRef = db.ref("story/" + campaignId);
-    storyRef.orderByKey().equalTo(storyId).once("value", function(snapshot){
-        snapshot.ref.child(storyId).update({"storyImageURL":storyImageURL});
-        return res.send({success:true, message:"story image url updated"});
+    var uid = req.body.uid;
+    var idToken = req.body.idToken;
+    firebase.auth().verifyIdToken(idToken).then(function(decodedToken) {
+        if (uid == decodedToken.uid){
+            var storyId = req.body.storyId;
+            var storyImageURL = req.body.storyImageURL;
+            var campaignId = req.body.campaignId;
+            var storyRef = db.ref("story/" + campaignId);
+            storyRef.orderByKey().equalTo(storyId).once("value", function(snapshot){
+                snapshot.ref.child(storyId).update({"storyImageURL":storyImageURL});
+                return res.send({success:true, message:"story image url updated"});
+            });
+        }
+        else{
+            console.log("token invalid");
+        }
     });
 
 };
 
 exports.updateStoryAudioURLForStory = function(req, res){
-    var storyId = req.body.storyId;
-    var storyAudioURL = req.body.storyAudioURL;
-    var campaignId = req.body.campaignId;
-    var storyRef = db.ref("story/" + campaignId);
-    storyRef.orderByKey().equalTo(storyId).once("value", function(snapshot){
-        snapshot.ref.child(storyId).update({"storyAudioURL":storyAudioURL});
-        return res.send({success:true, message:"story audio url updated"});
+    var uid = req.body.uid;
+    var idToken = req.body.idToken;
+    firebase.auth().verifyIdToken(idToken).then(function(decodedToken) {
+        if (uid == decodedToken.uid){
+            var storyId = req.body.storyId;
+            var storyAudioURL = req.body.storyAudioURL;
+            var campaignId = req.body.campaignId;
+            var storyRef = db.ref("story/" + campaignId);
+            storyRef.orderByKey().equalTo(storyId).once("value", function(snapshot){
+                snapshot.ref.child(storyId).update({"storyAudioURL":storyAudioURL});
+                return res.send({success:true, message:"story audio url updated"});
+            });
+        }
+        else{
+            console.log("token invalid");
+        }
     });
-    
 };
 
 exports.getCandidatesForAddress = function(req, res){
@@ -483,9 +562,61 @@ exports.loadLegislatorForCampaignIdWithDivisionId = function(req, res){
             res.send({ success : true, message : 'legislator info delivered', legislatorNameString: legislatorNameString, legislatorRoleString:legislatorRoleString, legislatorPhotoURL:legislatorPhotoURL, legislatorPhoneString:legislatorPhoneString});
         }
         else{
-            res.send()
+            res.send({success : false, message:"error finding legislator info"})
         }
     });
+}
+
+exports.loadActivities = function(req, res){
+    var uid = req.body.uid;
+    var idToken = req.body.idToken;
+    firebase.auth().verifyIdToken(idToken).then(function(decodedToken) {
+        if (uid == decodedToken.uid){
+            var filter = req.body.filter;
+            var userActivityRef = db.ref("userActivity/" + uid);
+            var activitiesList = [];
+            if (filter == "All"){ 
+                userActivityRef.once("value", function(activitiesSnapshot){
+                    if (activitiesSnapshot.numChildren() > 0){
+                        var activities = activitiesSnapshot.val(); 
+                        for (var activity in activities){
+                            var activityToPush = activities[activity]
+                            activityToPush["key"] = activity;
+                            activitiesList.push(activityToPush);
+                        }
+
+                        activities = sortActivitiesByDate(activitiesList, true);
+                        res.send({success:true, message:"activities found", activities:activities});
+                    }
+                    else{
+                        res.send({success:true, message:"no activity found"});
+                    }
+                });
+            }
+            else{
+                userActivityRef.orderByChild("action").equalTo("speakout").once("value", function(activitiesSnapshot){
+                    if (activitiesSnapshot.numChildren() > 0){
+                        var activities = activitiesSnapshot.val(); 
+                        for (var activity in activities){
+                            var activityToPush = activities[activity]
+                            activityToPush["key"] = activity;
+                            activitiesList.push(activityToPush);
+                        }
+                        activities = sortActivitiesByDate(activitiesList, true);
+                        res.send({success:true, message:"activities found", activities:activities});
+                    }
+                    else{
+                        res.send({success:true, message:"no activity found"});
+                    }
+                });
+            }
+        }
+        else{
+            console.log("token invalid");
+        }
+    });
+    
+
 }
 
 function getCandidatesForAddress(address, callback){
@@ -533,11 +664,6 @@ function getLegislatorInfoForCampaignId(campaignId, callback){
 }
 
 function sortCandidatesByOfficeLevel(candidatesList, desc){
-    // var candidatesArray = [];
-    // for (var candidate in candidatesList){
-    //     candidatesArray.push(candidatesList[candidate]);
-    // }
-    // console.log(candidatesArray);
     candidatesList.sort(function(a, b){
         return a.divisionId.length - b.divisionId.length;
     });
@@ -545,24 +671,22 @@ function sortCandidatesByOfficeLevel(candidatesList, desc){
 }
 
 function sortCampaignsByOfficeLevel(campaignsList, desc){
-    // var candidatesArray = [];
-    // for (var candidate in candidatesList){
-    //     candidatesArray.push(candidatesList[candidate]);
-    // }
-    // console.log(candidatesArray);
     campaignsList.sort(function(a, b){
         return b.divisionId.length - a.divisionId.length;
     });
     return campaignsList;
 }
 
+function sortActivitiesByDate(activities, desc){
+    activities.sort(function(a, b){
+        return b.date - a.date;
+    });
+    return activities;
+}
+
+
 
 function sortStoriesByDate(stories, desc){
-    // var candidatesArray = [];
-    // for (var candidate in candidatesList){
-    //     candidatesArray.push(candidatesList[candidate]);
-    // }
-    // console.log(candidatesArray);
     stories.sort(function(a, b){
         return b.date - a.date;
     });
@@ -570,11 +694,6 @@ function sortStoriesByDate(stories, desc){
 }
 
 function sortStoriesByLikeCount(stories, desc){
-    // var candidatesArray = [];
-    // for (var candidate in candidatesList){
-    //     candidatesArray.push(candidatesList[candidate]);
-    // }
-    // console.log(candidatesArray);
     stories.sort(function(a, b){
         return b.likeCount - a.likeCount;
     });
@@ -618,5 +737,12 @@ function getRandomLegislatorForDivisionId(divisionId, callback){
             callback("error");
         }
     });
+
+}
+
+function doesIdTokenMatchUID(idToken, uid){
+    console.log("idToken is " + idToken);
+    console.log("uid is " + uid);
+
 
 }

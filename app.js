@@ -59,7 +59,6 @@ var app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended:false}));
 
-app.post('/updateUserInfo', speakoutRoutes.updateUserInfo);
 app.post('/loadLatestActiveCampaignForAddress', speakoutRoutes.loadLatestActiveCampaignForAddress);
 app.post('/loadStoriesForCampaignBeforeTime', speakoutRoutes.loadStoriesForCampaignBeforeTime);
 app.post('/likeStory', speakoutRoutes.likeStory);
@@ -71,7 +70,7 @@ app.post('/updateStoryImageURLForStory', speakoutRoutes.updateStoryImageURLForSt
 app.post('/updateStoryAudioURLForStory', speakoutRoutes.updateStoryAudioURLForStory);
 app.post('/getCandidatesForAddress', speakoutRoutes.getCandidatesForAddress);
 app.post('/loadLegislatorForCampaignIdWithDivisionId', speakoutRoutes.loadLegislatorForCampaignIdWithDivisionId);
-
+app.post('/loadActivities', speakoutRoutes.loadActivities);
 var server = app.listen(process.env.PORT || '8080', function () {
   console.log('App listening on port %s', server.address().port);
   console.log('Press Ctrl+C to quit.');
