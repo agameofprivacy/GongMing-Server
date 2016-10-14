@@ -6,152 +6,164 @@ var moment = app.moment;
 var request = app.request;
 var sunlightAPIKey = app.sunlightAPIKey;
 var googleAPIKey = app.googleAPIKey;
-
+var clientAPIKey = "UrXi59rCjB7wBMU6hF1l6oTdyfKCzw5C06l7IASEPtKCAMHV8ZQxjeX3BXOwEpa";
 exports.loadLatestActiveCampaignForAddress = function (req, res){
-    var address = encodeURIComponent(req.body.address);
-    getOfficesForAddress(address, function(data){
-        if (data != "error"){
-            var normalizedAddress = data["normalizedInput"]["line1"] + ", " + data["normalizedInput"]["city"];
-            var campaignsList = [];
-            var numberOfDivisionProcessed = 0;
-            var divisionsArray = [];
-            for (var i = 0; i < data["offices"].length; i++){
-                if (divisionsArray.indexOf(data["offices"][i]["divisionId"]) == -1){
-                    divisionsArray.push(data["offices"][i]["divisionId"]);
+    if (req.body.clientAPIKey == clientAPIKey){
+        var address = encodeURIComponent(req.body.address);
+        getOfficesForAddress(address, function(data){
+            if (data != "error"){
+                var normalizedAddress = data["normalizedInput"]["line1"] + ", " + data["normalizedInput"]["city"];
+                var campaignsList = [];
+                var numberOfDivisionProcessed = 0;
+                var divisionsArray = [];
+                for (var i = 0; i < data["offices"].length; i++){
+                    if (divisionsArray.indexOf(data["offices"][i]["divisionId"]) == -1){
+                        divisionsArray.push(data["offices"][i]["divisionId"]);
+                    }
                 }
-            }
-            for (var i = 0; i < divisionsArray.length; i++){
+                for (var i = 0; i < divisionsArray.length; i++){
 
-                var officeOCD = divisionsArray[i];
-                var campaignsRef = db.ref("campaign")
-                campaignsRef.orderByChild("divisionId").equalTo(officeOCD).once("value", function(snapshot){
-                    if (snapshot.numChildren() > 0) {
-                        var campaignCount = 0
-                        var snapshotObject = snapshot.val();
-                        for (var campaignObject in snapshotObject){
-                            var campaign = snapshotObject[campaignObject];
-                            campaign["key"] = campaignObject;
-                            console.log("campaign is " + campaign["active"]);
-                            if (campaignsList.indexOf(campaign) == -1 && campaign["active"]){
-                                campaignsList.push(campaign); 
-                            }
-                            campaignCount++;
-                            if (campaignCount == snapshot.numChildren()){
-                                numberOfDivisionProcessed++;
-                                if (numberOfDivisionProcessed == divisionsArray.length){
-                                    campaignsList = sortCampaignsByOfficeLevel(campaignsList, true);
-                                    res.send({success:true, campaignsList: campaignsList, normalizedAddress:normalizedAddress, message:"candidates are found"});
+                    var officeOCD = divisionsArray[i];
+                    var campaignsRef = db.ref("campaign")
+                    campaignsRef.orderByChild("divisionId").equalTo(officeOCD).once("value", function(snapshot){
+                        if (snapshot.numChildren() > 0) {
+                            var campaignCount = 0
+                            var snapshotObject = snapshot.val();
+                            for (var campaignObject in snapshotObject){
+                                var campaign = snapshotObject[campaignObject];
+                                campaign["key"] = campaignObject;
+                                console.log("campaign is " + campaign["active"]);
+                                if (campaignsList.indexOf(campaign) == -1 && campaign["active"]){
+                                    campaignsList.push(campaign); 
+                                }
+                                campaignCount++;
+                                if (campaignCount == snapshot.numChildren()){
+                                    numberOfDivisionProcessed++;
+                                    if (numberOfDivisionProcessed == divisionsArray.length){
+                                        campaignsList = sortCampaignsByOfficeLevel(campaignsList, true);
+                                        res.send({success:true, campaignsList: campaignsList, normalizedAddress:normalizedAddress, message:"candidates are found"});
+                                    }
                                 }
                             }
                         }
-                    }
-                    else{
-                        numberOfDivisionProcessed++;
-                        if (numberOfDivisionProcessed == divisionsArray.length){
-                            campaignsList = sortCampaignsByOfficeLevel(campaignsList, true);
-                            res.send({success:true, campaignsList: campaignsList, normalizedAddress:normalizedAddress, message:"candidates are found"});
+                        else{
+                            numberOfDivisionProcessed++;
+                            if (numberOfDivisionProcessed == divisionsArray.length){
+                                campaignsList = sortCampaignsByOfficeLevel(campaignsList, true);
+                                res.send({success:true, campaignsList: campaignsList, normalizedAddress:normalizedAddress, message:"candidates are found"});
 
+                            }
                         }
-                    }
-                });
+                    });
 
-            }
-            
-        }
-        else{
-            res.send({success:false, message:"offices are not found"});
-        }
-    });
-};
-
-exports.loadStoriesForCampaignBeforeTime = function(req, res){
-    var campaignId = req.body.campaignId;
-    var beforeTime = req.body.beforeTime;
-    var initialLoad = req.body.initialLoad;
-    var sortMethod = req.body.sortMethod;
-    var storyRef = db.ref("story/" + campaignId);
-
-    var numStories = 10;
-    var noMoreStories;
-    var stories;
-    var storiesList = [];
-
-    if (initialLoad){
-        numStories = numStories - 1;
-    }
-    var topStory;
-    storyRef.orderByChild("likeCount").limitToLast(1).once("value", function(snapshot){
-        if (snapshot.numChildren() > 0){
-            for (var story in snapshot.val()){
-                topStory = snapshot.val();
-            }
-            if (stories != null){
-                return res.send({success:true, message:"stories found", stories:stories, noMoreStories:noMoreStories, topStory:topStory});
-            }
-        }
-        else{
-            if (stories != null){
-                return res.send({success:true, message:"stories found", stories:stories, noMoreStories:noMoreStories, topStory:null});
-            }
-        }
-    });
-    if (sortMethod == "Recent"){
-        storyRef.orderByChild("date").endAt(beforeTime).limitToLast(numStories + 1).once("value", function(snapshot){
-            if (snapshot.numChildren() > 1){
-                stories = snapshot.val();
-                if (!initialLoad){
-                    var index = 0;
-                    var indexToDelete;
-                    var keyOfStoryToDelete;
-                    for (var story in stories){
-                        if (stories[story]["date"] == beforeTime){
-                            keyOfStoryToDelete = story;
-                            delete stories[keyOfStoryToDelete];
-                        }
-                        index++;
-                    }
                 }
-                if (stories.length < numStories + 1){
-                    noMoreStories = true;
-                }
-                else{
-                    noMoreStories = false;
-                }
-                for (var story in stories){
-                    var storyToPush = stories[story]
-                    storyToPush["key"] = story;
-                    storiesList.push(storyToPush);
-                }
-                stories = sortStoriesByDate(storiesList, true);
-                if (topStory != null){ 
-                    return res.send({success:true, message:"stories found", stories:stories, noMoreStories:noMoreStories, topStory:topStory});
-                }
+                
             }
-        else{
-            return res.send({success:false, message:"no more stories found", stories:null, noMoreStories:true, topStory:null});
-        }
+            else{
+                res.send({success:false, message:"offices are not found"});
+            }
         });
     }
     else{
-        storyRef.orderByChild("likeCount").limitToLast(100).once("value", function(snapshot){
-            if (snapshot.numChildren() > 1){
-                stories = snapshot.val();
-                for (var story in stories){
-                    var storyToPush = stories[story]
-                    storyToPush["key"] = story;
-                    storiesList.push(storyToPush);
+        res.send({success:false, message:"clientAPIKey invalid"});
+    } 
+    
+};
+
+exports.loadStoriesForCampaignBeforeTime = function(req, res){
+    if (req.body.clientAPIKey == clientAPIKey){
+        var campaignId = req.body.campaignId;
+        var beforeTime = req.body.beforeTime;
+        var initialLoad = req.body.initialLoad;
+        var sortMethod = req.body.sortMethod;
+        var storyRef = db.ref("story/" + campaignId);
+
+        var numStories = 10;
+        var noMoreStories;
+        var stories;
+        var storiesList = [];
+
+        if (initialLoad){
+            numStories = numStories - 1;
+        }
+        var topStory;
+        storyRef.orderByChild("likeCount").limitToLast(1).once("value", function(snapshot){
+            if (snapshot.numChildren() > 0){
+                for (var story in snapshot.val()){
+                    topStory = snapshot.val();
                 }
-                stories = sortStoriesByLikeCount(storiesList, true);
-                if (topStory != null){ 
-                    return res.send({success:true, message:"stories found", stories:stories, noMoreStories:true, topStory:topStory});
+                if (stories != null){
+                    return res.send({success:true, message:"stories found", stories:stories, noMoreStories:noMoreStories, topStory:topStory});
                 }
             }
-        else{
-            return res.send({success:false, message:"no more stories found", stories:null, noMoreStories:true, topStory:null});
-        }
+            else{
+                if (stories != null){
+                    return res.send({success:true, message:"stories found", stories:stories, noMoreStories:noMoreStories, topStory:null});
+                }
+            }
         });
+        if (sortMethod == "Recent"){
+            storyRef.orderByChild("date").endAt(beforeTime).limitToLast(numStories + 1).once("value", function(snapshot){
+                if (snapshot.numChildren() > 1){
+                    stories = snapshot.val();
+                    if (!initialLoad){
+                        var index = 0;
+                        var indexToDelete;
+                        var keyOfStoryToDelete;
+                        for (var story in stories){
+                            if (stories[story]["date"] == beforeTime){
+                                keyOfStoryToDelete = story;
+                                delete stories[keyOfStoryToDelete];
+                            }
+                            index++;
+                        }
+                    }
+                    if (stories.length < numStories + 1){
+                        noMoreStories = true;
+                    }
+                    else{
+                        noMoreStories = false;
+                    }
+                    for (var story in stories){
+                        var storyToPush = stories[story]
+                        storyToPush["key"] = story;
+                        storiesList.push(storyToPush);
+                    }
+                    stories = sortStoriesByDate(storiesList, true);
+                    if (topStory != null){ 
+                        return res.send({success:true, message:"stories found", stories:stories, noMoreStories:noMoreStories, topStory:topStory});
+                    }
+                }
+            else{
+                return res.send({success:false, message:"no more stories found", stories:null, noMoreStories:true, topStory:null});
+            }
+            });
+        }
+        else{
+            storyRef.orderByChild("likeCount").limitToLast(100).once("value", function(snapshot){
+                if (snapshot.numChildren() > 1){
+                    stories = snapshot.val();
+                    for (var story in stories){
+                        var storyToPush = stories[story]
+                        storyToPush["key"] = story;
+                        storiesList.push(storyToPush);
+                    }
+                    stories = sortStoriesByLikeCount(storiesList, true);
+                    if (topStory != null){ 
+                        return res.send({success:true, message:"stories found", stories:stories, noMoreStories:true, topStory:topStory});
+                    }
+                }
+            else{
+                return res.send({success:false, message:"no more stories found", stories:null, noMoreStories:true, topStory:null});
+            }
+            });
 
+        }
     }
+    else{
+        res.send({success:false, message:"clientAPIKey invalid"});
+    }
+
 };
 
 exports.likeStory = function(req, res){
@@ -410,51 +422,57 @@ exports.submitStory = function(req, res){
 
 
 exports.loadIssuesForAddress = function(req, res){
-    var address = encodeURIComponent(req.body.address);
-    getCandidatesForAddress(address, function(data){
-        if (data != "error"){
-            var normalizedAddress = data["normalizedInput"]["line1"] + ", " + data["normalizedInput"]["city"];
-            var issuesList = [];
-            var numberOfDivisionProcessed = 0;
-            var searchOffice = [];
-            for (var i = 0; i < data["offices"].length; i++){
-                if (searchOffice.indexOf(data["offices"][i]["divisionId"]) == -1){
-                    searchOffice.push(data["offices"][i]["divisionId"]);
+    if (req.body.clientAPIKey == clientAPIKey){
+        var address = encodeURIComponent(req.body.address);
+        getCandidatesForAddress(address, function(data){
+            if (data != "error"){
+                var normalizedAddress = data["normalizedInput"]["line1"] + ", " + data["normalizedInput"]["city"];
+                var issuesList = [];
+                var numberOfDivisionProcessed = 0;
+                var searchOffice = [];
+                for (var i = 0; i < data["offices"].length; i++){
+                    if (searchOffice.indexOf(data["offices"][i]["divisionId"]) == -1){
+                        searchOffice.push(data["offices"][i]["divisionId"]);
+                    }
                 }
-            }
-            for (var i = 0; i < searchOffice.length; i++){
-                var officeOCD = searchOffice[i];
-                var issuesRef = db.ref("issue")
-                issuesRef.orderByChild("divisionId").equalTo(officeOCD).once("value", function(snapshot){
-                    if (snapshot.numChildren() > 0) {
-                        var issueCount = 0
-                        var snapshotObject = snapshot.val();
-                        for (var issueObject in snapshotObject){
-                            var issue = snapshotObject[issueObject];
-                            issuesList.push(issue);
-                            issueCount++;
-                            if (issueCount == snapshot.numChildren()){
-                                numberOfDivisionProcessed++;
-                                if (numberOfDivisionProcessed == searchOffice.length){
-                                    res.send({success:true, issuesList: issuesList, normalizedAddress:normalizedAddress, message:"issues are found"});
+                for (var i = 0; i < searchOffice.length; i++){
+                    var officeOCD = searchOffice[i];
+                    var issuesRef = db.ref("issue")
+                    issuesRef.orderByChild("divisionId").equalTo(officeOCD).once("value", function(snapshot){
+                        if (snapshot.numChildren() > 0) {
+                            var issueCount = 0
+                            var snapshotObject = snapshot.val();
+                            for (var issueObject in snapshotObject){
+                                var issue = snapshotObject[issueObject];
+                                issuesList.push(issue);
+                                issueCount++;
+                                if (issueCount == snapshot.numChildren()){
+                                    numberOfDivisionProcessed++;
+                                    if (numberOfDivisionProcessed == searchOffice.length){
+                                        res.send({success:true, issuesList: issuesList, normalizedAddress:normalizedAddress, message:"issues are found"});
+                                    }
                                 }
                             }
                         }
-                    }
-                    else{
-                        numberOfDivisionProcessed++;
-                        if (numberOfDivisionProcessed == searchOffice.length){
-                            res.send({success:true, issuesList: issuesList, normalizedAddress:normalizedAddress, message:"issues are found"});
+                        else{
+                            numberOfDivisionProcessed++;
+                            if (numberOfDivisionProcessed == searchOffice.length){
+                                res.send({success:true, issuesList: issuesList, normalizedAddress:normalizedAddress, message:"issues are found"});
 
+                            }
                         }
-                    }
-                });
+                    });
+                }
             }
-        }
-        else{
-            res.send({success:false, message:"issues are not found"});
-        }
-    });
+            else{
+                res.send({success:false, message:"issues are not found"});
+            }
+        });
+    }
+    else{
+        res.send({success:false, message:"clientAPIKey invalid"});
+    }
+    
 }
 
 exports.updateStoryImageURLForStory = function(req, res){
@@ -499,72 +517,84 @@ exports.updateStoryAudioURLForStory = function(req, res){
 };
 
 exports.getCandidatesForAddress = function(req, res){
-    var address = encodeURIComponent(req.body.address);
-    getCandidatesForAddress(address, function(data){
-        if (data != "error"){
-            var normalizedAddress = data["normalizedInput"]["line1"] + ", " + data["normalizedInput"]["city"];
-            var candidatesList = [];
-            var numberOfDivisionProcessed = 0;
-            for (var i = 0; i < data["offices"].length; i++){
-                var officeOCD = data["offices"][i]["divisionId"];
-                var officeName = data["offices"][i]["name"];
-                var candidatesRef = db.ref("candidate")
-                candidatesRef.orderByChild("divisionId").equalTo(officeOCD).once("value", function(snapshot){
-                    if (snapshot.numChildren() > 0) {
-                        var candidateCount = 0
-                        for (var i = 0; i < snapshot.numChildren(); i++){
-                            var snapshotObject = snapshot.val();
-                            for (var candidateObject in snapshotObject){
-                                var candidate = snapshotObject[candidateObject];
-                                if (candidate["officeName"] == this.officeName){
-                                    candidatesList.push(candidate);
-                                } 
-                                candidateCount++;
-                                if (candidateCount == snapshot.numChildren()){
-                                    numberOfDivisionProcessed++;
-                                    if (numberOfDivisionProcessed == data["offices"].length){
-                                        candidatesList = sortCandidatesByOfficeLevel(candidatesList, true);
-                                        res.send({success:true, candidatesList: candidatesList, normalizedAddress:normalizedAddress, message:"candidates are found"});
+    if (req.body.clientAPIKey == clientAPIKey){
+        var address = encodeURIComponent(req.body.address);
+        getCandidatesForAddress(address, function(data){
+            if (data != "error"){
+                var normalizedAddress = data["normalizedInput"]["line1"] + ", " + data["normalizedInput"]["city"];
+                var candidatesList = [];
+                var numberOfDivisionProcessed = 0;
+                for (var i = 0; i < data["offices"].length; i++){
+                    var officeOCD = data["offices"][i]["divisionId"];
+                    var officeName = data["offices"][i]["name"];
+                    var candidatesRef = db.ref("candidate")
+                    candidatesRef.orderByChild("divisionId").equalTo(officeOCD).once("value", function(snapshot){
+                        if (snapshot.numChildren() > 0) {
+                            var candidateCount = 0
+                            for (var i = 0; i < snapshot.numChildren(); i++){
+                                var snapshotObject = snapshot.val();
+                                for (var candidateObject in snapshotObject){
+                                    var candidate = snapshotObject[candidateObject];
+                                    if (candidate["officeName"] == this.officeName){
+                                        candidatesList.push(candidate);
+                                    } 
+                                    candidateCount++;
+                                    if (candidateCount == snapshot.numChildren()){
+                                        numberOfDivisionProcessed++;
+                                        if (numberOfDivisionProcessed == data["offices"].length){
+                                            candidatesList = sortCandidatesByOfficeLevel(candidatesList, true);
+                                            res.send({success:true, candidatesList: candidatesList, normalizedAddress:normalizedAddress, message:"candidates are found"});
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                    else{
-                        numberOfDivisionProcessed++;
-                        if (numberOfDivisionProcessed == data["offices"].length){
-                            candidatesList = sortCandidatesByOfficeLevel(candidatesList, true);
-                            res.send({success:true, candidatesList: candidatesList, normalizedAddress:normalizedAddress, message:"candidates are found"});
+                        else{
+                            numberOfDivisionProcessed++;
+                            if (numberOfDivisionProcessed == data["offices"].length){
+                                candidatesList = sortCandidatesByOfficeLevel(candidatesList, true);
+                                res.send({success:true, candidatesList: candidatesList, normalizedAddress:normalizedAddress, message:"candidates are found"});
 
+                            }
                         }
-                    }
-                }, {officeName:officeName});
+                    }, {officeName:officeName});
 
+                }
+                
             }
-            
-        }
-        else{
-            res.send({success:false, message:"candidates are not found"});
-        }
-    });
+            else{
+                res.send({success:false, message:"candidates are not found"});
+            }
+        });
+    }
+    else{
+        res.send({success:false, message:"clientAPIKey invalid"});
+    }
+    
 }
 
 exports.loadLegislatorForCampaignIdWithDivisionId = function(req, res){
-    var campaignId = req.body.campaignId;
-    var divisionId = req.body.divisionId;
-    getLegislatorInfoForCampaignIdAndDivisionId(campaignId, divisionId, function(legislator, office){
-        if (legislator != "error"){
-            var legislatorNameString = legislator["name"];
-            var legislatorRoleString = office["name"];
-            var legislatorPhotoURL = legislator["photoUrl"];
-            var legislatorPhoneString = legislator["phones"][0];
-            console.log(legislatorPhoneString);
-            res.send({ success : true, message : 'legislator info delivered', legislatorNameString: legislatorNameString, legislatorRoleString:legislatorRoleString, legislatorPhotoURL:legislatorPhotoURL, legislatorPhoneString:legislatorPhoneString});
-        }
-        else{
-            res.send({success : false, message:"error finding legislator info"})
-        }
-    });
+    if (req.body.clientAPIKey == clientAPIKey){
+        var campaignId = req.body.campaignId;
+        var divisionId = req.body.divisionId;
+        getLegislatorInfoForCampaignIdAndDivisionId(campaignId, divisionId, function(legislator, office){
+            if (legislator != "error"){
+                var legislatorNameString = legislator["name"];
+                var legislatorRoleString = office["name"];
+                var legislatorPhotoURL = legislator["photoUrl"];
+                var legislatorPhoneString = legislator["phones"][0];
+                console.log(legislatorPhoneString);
+                res.send({ success : true, message : 'legislator info delivered', legislatorNameString: legislatorNameString, legislatorRoleString:legislatorRoleString, legislatorPhotoURL:legislatorPhotoURL, legislatorPhoneString:legislatorPhoneString});
+            }
+            else{
+                res.send({success : false, message:"error finding legislator info"})
+            }
+        });
+    }
+    else{
+        res.send({success:false, message:"clientAPIKey invalid"});
+    }
+    
 }
 
 exports.loadActivities = function(req, res){
