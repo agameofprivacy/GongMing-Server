@@ -276,11 +276,11 @@ function getRandomInt(min, max) {
 
 // add story to campaign
 // var campaignStoriesRef = db.ref("story/" + "-KSWfR6vOhizHMX4YUZ7");
-//   for (var i = 0; i < 10; i ++){
+//   for (var i = 0; i < 100; i ++){
 //       var newStory = campaignStoriesRef.push();
 //       newStory.set({
 //         authorCity: "Los Angeles",
-//         authorDisplayName: "queenofthehill",
+//         authorDisplayName: "" + i + "queenofthehill",
 //         authorId: "Zl59GEywfGbCChVCRxHxc005yHA2",
 //         authorPhotoURL:"https://firebasestorage.googleapis.com/v0/b/speakout-9d07b.appspot.com/o/users%2FZl59GEywfGbCChVCRxHxc005yHA2%2FprofileImages%2FprofileImage.jpg?alt=media&token=ad8eb328-9ef2-48ec-862a-9048bd3922ba",
 //         authorState: "CA",

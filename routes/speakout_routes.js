@@ -101,13 +101,10 @@ exports.loadStoriesForCampaignBeforeTime = function(req, res){
         });
         if (sortMethod == "Recent"){
             if (lastStoryId != null){
-                console.log("lastStoryId is " + lastStoryId);
-                storyRef.orderByKey().endAt(lastStoryId).limitToFirst(numStories).once("value", function(snapshot){
+                storyRef.orderByKey().endAt(lastStoryId).limitToLast(numStories + 1).once("value", function(snapshot){
                     if (snapshot.numChildren() > 0){
                         stories = snapshot.val();
-                        console.log("numChildren = " + snapshot.numChildren() + ", numStories = " + numStories);
-                        if (snapshot.numChildren() < numStories){
-                            console.log("no more stories");
+                        if (snapshot.numChildren() < numStories + 1){
                             noMoreStories = true;
                         }
                         else{
@@ -118,8 +115,10 @@ exports.loadStoriesForCampaignBeforeTime = function(req, res){
                             storyToPush["key"] = story;
                             storiesList.push(storyToPush);
                         }
+                        storiesList = storiesList.reverse();
+                        storiesList.shift();
                         if (topStory != null){ 
-                            return res.send({success:true, message:"stories found", stories:storiesList.reverse(), noMoreStories:noMoreStories, topStory:topStory});
+                            return res.send({success:true, message:"stories found", stories:storiesList, noMoreStories:noMoreStories, topStory:topStory});
                         }   
                     }
                     else{
