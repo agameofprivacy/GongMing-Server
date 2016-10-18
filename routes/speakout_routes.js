@@ -7,6 +7,7 @@ var request = app.request;
 var sunlightAPIKey = app.sunlightAPIKey;
 var googleAPIKey = app.googleAPIKey;
 var clientAPIKey = "UrXi59rCjB7wBMU6hF1l6oTdyfKCzw5C06l7IASEPtKCAMHV8ZQxjeX3BXOwEpa";
+
 exports.loadLatestActiveCampaignForAddress = function (req, res){
     if (req.body.clientAPIKey == clientAPIKey){
         var address = encodeURIComponent(req.body.address);
@@ -22,7 +23,6 @@ exports.loadLatestActiveCampaignForAddress = function (req, res){
                     }
                 }
                 for (var i = 0; i < divisionsArray.length; i++){
-
                     var officeOCD = divisionsArray[i];
                     var campaignsRef = db.ref("campaign")
                     campaignsRef.orderByChild("divisionId").equalTo(officeOCD).once("value", function(snapshot){
@@ -32,7 +32,6 @@ exports.loadLatestActiveCampaignForAddress = function (req, res){
                             for (var campaignObject in snapshotObject){
                                 var campaign = snapshotObject[campaignObject];
                                 campaign["key"] = campaignObject;
-                                console.log("campaign is " + campaign["active"]);
                                 if (campaignsList.indexOf(campaign) == -1 && campaign["active"]){
                                     campaignsList.push(campaign); 
                                 }
@@ -76,6 +75,7 @@ exports.loadStoriesForCampaignBeforeTime = function(req, res){
         var beforeTime = req.body.beforeTime;
         var initialLoad = req.body.initialLoad;
         var sortMethod = req.body.sortMethod;
+        var lastStoryId = req.body.lastStoryId;
         var storyRef = db.ref("story/" + campaignId);
 
         var numStories = 10;
@@ -83,9 +83,6 @@ exports.loadStoriesForCampaignBeforeTime = function(req, res){
         var stories;
         var storiesList = [];
 
-        if (initialLoad){
-            numStories = numStories - 1;
-        }
         var topStory;
         storyRef.orderByChild("likeCount").limitToLast(1).once("value", function(snapshot){
             if (snapshot.numChildren() > 0){
@@ -93,68 +90,85 @@ exports.loadStoriesForCampaignBeforeTime = function(req, res){
                     topStory = snapshot.val();
                 }
                 if (stories != null){
-                    return res.send({success:true, message:"stories found", stories:stories, noMoreStories:noMoreStories, topStory:topStory});
+                    return res.send({success:true, message:"stories found", stories:storiesList, noMoreStories:noMoreStories, topStory:topStory});
                 }
             }
             else{
                 if (stories != null){
-                    return res.send({success:true, message:"stories found", stories:stories, noMoreStories:noMoreStories, topStory:null});
+                    return res.send({success:true, message:"stories found", stories:storiesList, noMoreStories:noMoreStories, topStory:null});
                 }
             }
         });
         if (sortMethod == "Recent"){
-            storyRef.orderByChild("date").endAt(beforeTime).limitToLast(numStories + 1).once("value", function(snapshot){
-                if (snapshot.numChildren() > 1){
-                    stories = snapshot.val();
-                    if (!initialLoad){
-                        var index = 0;
-                        var indexToDelete;
-                        var keyOfStoryToDelete;
-                        for (var story in stories){
-                            if (stories[story]["date"] == beforeTime){
-                                keyOfStoryToDelete = story;
-                                delete stories[keyOfStoryToDelete];
-                            }
-                            index++;
+            if (lastStoryId != null){
+                console.log("lastStoryId is " + lastStoryId);
+                storyRef.orderByKey().endAt(lastStoryId).limitToFirst(numStories).once("value", function(snapshot){
+                    if (snapshot.numChildren() > 0){
+                        stories = snapshot.val();
+                        console.log("numChildren = " + snapshot.numChildren() + ", numStories = " + numStories);
+                        if (snapshot.numChildren() < numStories){
+                            console.log("no more stories");
+                            noMoreStories = true;
                         }
-                    }
-                    if (stories.length < numStories + 1){
-                        noMoreStories = true;
+                        else{
+                            noMoreStories = false;
+                        }
+                        for (var story in stories){
+                            var storyToPush = stories[story]
+                            storyToPush["key"] = story;
+                            storiesList.push(storyToPush);
+                        }
+                        if (topStory != null){ 
+                            return res.send({success:true, message:"stories found", stories:storiesList.reverse(), noMoreStories:noMoreStories, topStory:topStory});
+                        }   
                     }
                     else{
-                        noMoreStories = false;
+                        return res.send({success:true, message:"no more stories found", stories:null, noMoreStories:true, topStory:null});
                     }
-                    for (var story in stories){
-                        var storyToPush = stories[story]
-                        storyToPush["key"] = story;
-                        storiesList.push(storyToPush);
-                    }
-                    stories = sortStoriesByDate(storiesList, true);
-                    if (topStory != null){ 
-                        return res.send({success:true, message:"stories found", stories:stories, noMoreStories:noMoreStories, topStory:topStory});
-                    }
-                }
-            else{
-                return res.send({success:false, message:"no more stories found", stories:null, noMoreStories:true, topStory:null});
+                });
             }
-            });
+            else{
+                storyRef.limitToLast(numStories).once("value", function(snapshot){
+                    if (snapshot.numChildren() > 0){
+                        stories = snapshot.val();
+                        
+                        if (snapshot.numChildren() < numStories){
+                            noMoreStories = true;
+                        }
+                        else{
+                            noMoreStories = false;
+                        }
+                        for (var story in stories){
+                            var storyToPush = stories[story]
+                            storyToPush["key"] = story;
+                            storiesList.push(storyToPush);
+                        }
+                        if (topStory != null){ 
+                            return res.send({success:true, message:"stories found", stories:storiesList.reverse(), noMoreStories:noMoreStories, topStory:topStory});
+                        }   
+                    }
+                    else{
+                        return res.send({success:true, message:"no more stories found", stories:null, noMoreStories:true, topStory:null});
+                    }
+                });
+            }
         }
         else{
             storyRef.orderByChild("likeCount").limitToLast(100).once("value", function(snapshot){
-                if (snapshot.numChildren() > 1){
+                if (snapshot.numChildren() > 0){
                     stories = snapshot.val();
                     for (var story in stories){
                         var storyToPush = stories[story]
                         storyToPush["key"] = story;
                         storiesList.push(storyToPush);
                     }
-                    stories = sortStoriesByLikeCount(storiesList, true);
+                    storiesList = sortStoriesByLikeCount(storiesList, true);
                     if (topStory != null){ 
-                        return res.send({success:true, message:"stories found", stories:stories, noMoreStories:true, topStory:topStory});
+                        return res.send({success:true, message:"stories found", stories:storiesList, noMoreStories:true, topStory:topStory});
                     }
                 }
             else{
-                return res.send({success:false, message:"no more stories found", stories:null, noMoreStories:true, topStory:null});
+                return res.send({success:true, message:"no more stories found", stories:null, noMoreStories:true, topStory:null});
             }
             });
 
@@ -220,7 +234,7 @@ exports.likeStory = function(req, res){
                                         newActivity.child("storyId").set(storyId);
                                         newActivity.child("campaignGeoTitle").set(campaignGeoTitle);
                                         newActivity.child("campaignFullTitle").set(campaignFullTitle);
-                                        newActivity.child("date").set(moment().unix());
+                                        newActivity.child("date").set((new Date).getTime()/1000);
                                         
                                         var receiverActivityRef = db.ref("userActivity/" + storyAuthorId);
                                         var newReceiverActivity = receiverActivityRef.push();
@@ -233,7 +247,7 @@ exports.likeStory = function(req, res){
                                         newReceiverActivity.child("storyId").set(storyId);
                                         newReceiverActivity.child("campaignGeoTitle").set(campaignGeoTitle);
                                         newReceiverActivity.child("campaignFullTitle").set(campaignFullTitle);
-                                        newReceiverActivity.child("date").set(moment().unix());
+                                        newReceiverActivity.child("date").set((new Date).getTime()/1000);
                                     }
                                     
                                     return res.send({success:true, message:"successfully liked or unliked", action:action});
@@ -262,7 +276,7 @@ exports.likeStory = function(req, res){
                             newActivity.child("storyAuthorDisplayName").set(storyAuthorDisplayName);
                             newActivity.child("campaignGeoTitle").set(campaignGeoTitle);
                             newActivity.child("campaignFullTitle").set(campaignFullTitle);
-                            newActivity.child("date").set(moment().unix());
+                            newActivity.child("date").set((new Date).getTime()/1000);
                         }
                         
                     });
@@ -271,6 +285,7 @@ exports.likeStory = function(req, res){
         }
         else{
             console.log("token invalid");
+            return res.send({success:false, message:"user token invalid"});
         }
     }).catch(function(error) {
     // Handle error
@@ -295,6 +310,7 @@ exports.reportStory = function(req, res){
         }
         else{
             console.log("token invalid");
+            return res.send({success:false, message:"user token invalid"});
         }
     });
 };
@@ -306,7 +322,7 @@ exports.recordSpeakout = function(req, res){
         if (uid == decodedToken.uid){
             var campaignId = req.body.campaignId;
             var address = encodeURIComponent(req.body.address);
-            var date = moment().unix();
+            var date = (new Date).getTime()/1000;
             var userInfoRef = db.ref("userInfo/" + uid);
             userInfoRef.once("value",function(snapshot){
                 var campaignSpeakoutsRef = db.ref("speakout/"+ campaignId);
@@ -352,6 +368,7 @@ exports.recordSpeakout = function(req, res){
                                             city:city,
                                             state:state
                                         });
+                                        userInfoRef.child("eligibleForTakeOnCampaign/" + campaignId).ref.set(true);
                                         return res.send({success:true, message:"speakout recorded", shouldPromptForStory:true, divisionId:mostLocalDivisionId, city:city, state:state});
                                     }
                                     else{
@@ -372,13 +389,14 @@ exports.recordSpeakout = function(req, res){
                         newSpeakoutActivity.child("campaignGeoTitle").set(campaignGeoTitle);
                         newSpeakoutActivity.child("campaignFullTitle").set(campaignFullTitle);
                         newSpeakoutActivity.child("position").set(position);
-                        newSpeakoutActivity.child("date").set(moment().unix());
+                        newSpeakoutActivity.child("date").set((new Date).getTime()/1000);
                     }
                 });
             });
         }
         else{
             console.log("token invalid");
+            return res.send({success:false, message:"user token invalid"});
         }
     });
 
@@ -415,6 +433,7 @@ exports.submitStory = function(req, res){
         }
         else{
             console.log("token invalid");
+            return res.send({success:false, message:"user token invalid"});
         }
     });
 
@@ -491,6 +510,7 @@ exports.updateStoryImageURLForStory = function(req, res){
         }
         else{
             console.log("token invalid");
+            return res.send({success:false, message:"user token invalid"});
         }
     });
 
@@ -512,6 +532,7 @@ exports.updateStoryAudioURLForStory = function(req, res){
         }
         else{
             console.log("token invalid");
+            return res.send({success:false, message:"user token invalid"});
         }
     });
 };
@@ -643,11 +664,75 @@ exports.loadActivities = function(req, res){
         }
         else{
             console.log("token invalid");
+            return res.send({success:false, message:"user token invalid"});
         }
     });
     
 
 }
+// exports.loadCampaignsForIssue = function(req, res){
+
+// };
+
+exports.loadOrganizationsForAddress = function(req, res){
+    if (req.body.clientAPIKey == clientAPIKey){
+        var address = encodeURIComponent(req.body.address);
+        getOfficesForAddress(address, function(data){
+            if (data != "error"){
+                var normalizedAddress = data["normalizedInput"]["line1"] + ", " + data["normalizedInput"]["city"];
+                var organizationsList = [];
+                var numberOfDivisionProcessed = 0;
+                var divisionsArray = [];
+                for (var i = 0; i < data["offices"].length; i++){
+                    if (divisionsArray.indexOf(data["offices"][i]["divisionId"]) == -1){
+                        divisionsArray.push(data["offices"][i]["divisionId"]);
+                    }
+                }
+                for (var i = 0; i < divisionsArray.length; i++){
+                    var officeOCD = divisionsArray[i];
+                    var organizationsRef = db.ref("organization")
+                    organizationsRef.orderByChild("divisionId").equalTo(officeOCD).once("value", function(snapshot){
+                        if (snapshot.numChildren() > 0) {
+                            var organizationCount = 0
+                            var snapshotObject = snapshot.val();
+                            for (var organizationObject in snapshotObject){
+                                var organization = snapshotObject[organizationObject];
+                                if (organizationsList.indexOf(organization) == -1){
+                                    organizationsList.push(organization); 
+                                }
+                                organizationCount++;
+                                if (organizationCount == snapshot.numChildren()){
+                                    numberOfDivisionProcessed++;
+                                    if (numberOfDivisionProcessed == divisionsArray.length){
+                                        organizationsList = sortOrganizationsByDivisionIdLevel(organizationsList, true);
+                                        res.send({success:true, organizationsList: organizationsList, normalizedAddress:normalizedAddress, message:"organizations are found"});
+                                    }
+                                }
+                            }
+                        }
+                        else{
+                            numberOfDivisionProcessed++;
+                            if (numberOfDivisionProcessed == divisionsArray.length){
+                                organizationsList = sortOrganizationsByDivisionIdLevel(organizationsList, true);
+                                res.send({success:true, organizationsList: organizationsList, normalizedAddress:normalizedAddress, message:"organizations are found"});
+
+                            }
+                        }
+                    });
+
+                }
+                
+            }
+            else{
+                res.send({success:false, message:"organizations are not found"});
+            }
+        });
+    }
+    else{
+        res.send({success:false, message:"clientAPIKey invalid"});
+    }
+
+};
 
 function getCandidatesForAddress(address, callback){
   var url = "https://www.googleapis.com/civicinfo/v2/representatives?address=" + address + "&includeOffices=true&fields=offices(divisionId%2Cname%2Croles)%2CnormalizedInput&key=" + googleAPIKey;
@@ -698,6 +783,13 @@ function sortCandidatesByOfficeLevel(candidatesList, desc){
         return a.divisionId.length - b.divisionId.length;
     });
     return candidatesList;
+}
+
+function sortOrganizationsByDivisionIdLevel(organizationsList, desc){
+    organizationsList.sort(function(a, b){
+        return b.divisionId.length - a.divisionId.length;
+    });
+    return organizationsList;
 }
 
 function sortCampaignsByOfficeLevel(campaignsList, desc){
