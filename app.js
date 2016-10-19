@@ -73,6 +73,7 @@ app.post('/getCandidatesForAddress', speakoutRoutes.getCandidatesForAddress);
 app.post('/loadLegislatorForCampaignIdWithDivisionId', speakoutRoutes.loadLegislatorForCampaignIdWithDivisionId);
 app.post('/loadActivities', speakoutRoutes.loadActivities);
 app.post('/loadOrganizationsForAddress', speakoutRoutes.loadOrganizationsForAddress);
+app.post('/deleteAccountWithId', speakoutRoutes.deleteAccountWithId);
 // app.post('/loadCampaignsForIssue', speakoutRoutes.loadCampaignsForIssue);
 var server = app.listen(process.env.PORT || '8080', function () {
   console.log('App listening on port %s', server.address().port);

@@ -733,6 +733,22 @@ exports.loadOrganizationsForAddress = function(req, res){
 
 };
 
+exports.deleteAccountWithId = function(req, res){
+    var uid = req.body.uid;
+    var idToken = req.body.idToken;
+    firebase.auth().verifyIdToken(idToken).then(function(decodedToken) {
+        if (uid == decodedToken.uid){
+            var userInfoRef = db.ref("userInfo/" + uid);
+            userInfoRef.update({requestedAccountDeletion:true});
+            return res.send({success:true, message:"account deletion requested"});
+        }
+        else{
+            console.log("token invalid");
+            return res.send({success:false, message:"user token invalid"});
+        }
+    });
+};
+
 function getCandidatesForAddress(address, callback){
   var url = "https://www.googleapis.com/civicinfo/v2/representatives?address=" + address + "&includeOffices=true&fields=offices(divisionId%2Cname%2Croles)%2CnormalizedInput&key=" + googleAPIKey;
     request(url, function(err, res, body) {
