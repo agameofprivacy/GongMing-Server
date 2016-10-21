@@ -787,37 +787,63 @@ exports.updateNotificationsForUIDWithAddress= function(req, res){
                                         ocdUsersSnapshot.forEach(function(snapshotOcd){
                                             var ocdUsers = snapshotOcd.child("users");
                                             if (ocdUsers.child(uid).exists()){
-                                                ocdUsers[uid] = null;
-                                            }
-                                            // add user to new ocds
-                                            if (this.index == ocdArray.length - 1){
-                                                for (var i = 0; i < divisionsArray.length; i++){
-                                                    var divisionIdToFind = divisionsArray[i];
-                                                    ocdUsersRef.orderByChild("divisionId").equalTo(divisionIdToFind).once("value", function(ocdUsersSnapshot){
-                                                        if (ocdUsersSnapshot.numChildren() > 0){
-                                                            ocdUsersSnapshot.forEach(function(snapshotOcd){
-                                                                var ocdUsers = snapshotOcd.child("users");
-                                                                ocdUsers.child(uid).set(true);
-                                                            });
-                                                        }
-                                                        else{
-                                                            var newOcdUsers = ocdUsersRef.push();
-                                                            newOcdUsers.set({divisionId:this.divisionIdToFind});
-                                                            newOcdUsers.child("users/" + uid).set(true);
-                                                        }
-                                                    }, {divisionIdToFind:divisionIdToFind});
-                                                }
-                                                // replace user ocds with new ocds
-                                                userOCDRef.set(null);
-                                                for (i in divisionsArray){
-                                                    var divisionId = divisionsArray[i];
-                                                    var newOcd = userOCDRef.push();
-                                                    newOcd.child("divisionId").set(divisionId);
-                                                }
-                                            }
-                                            
-
+                                                ocdUsers.child(uid).ref.remove();
+                                            }                                            
                                         });
+                                        // add user to new ocds
+                                        if (this.index == ocdArray.length - 1){
+                                            for (var i = 0; i < divisionsArray.length; i++){
+                                                var divisionIdToFind = divisionsArray[i];
+                                                ocdUsersRef.orderByChild("divisionId").equalTo(divisionIdToFind).once("value", function(ocdUsersSnapshot){
+                                                    if (ocdUsersSnapshot.numChildren() > 0){
+                                                        ocdUsersSnapshot.forEach(function(snapshotOcd){
+                                                            var ocdUsers = snapshotOcd.child("users/" + uid);
+                                                            ocdUsers.ref.set(true);
+                                                        });
+                                                    }
+                                                    else{
+                                                        var newOcdUsers = ocdUsersRef.push();
+                                                        newOcdUsers.set({divisionId:this.divisionIdToFind});
+                                                        newOcdUsers.child("users/" + uid).set(true);
+                                                    }
+                                                }, {divisionIdToFind:divisionIdToFind});
+                                            }
+                                            // replace user ocds with new ocds
+                                            userOCDRef.set(null);
+                                            for (i in divisionsArray){
+                                                var divisionId = divisionsArray[i];
+                                                var newOcd = userOCDRef.push();
+                                                newOcd.child("divisionId").set(divisionId);
+                                            }
+                                        }
+                                    }
+                                    else{
+                                        // add user to new ocds
+                                        if (this.index == ocdArray.length - 1){
+                                            for (var i = 0; i < divisionsArray.length; i++){
+                                                var divisionIdToFind = divisionsArray[i];
+                                                ocdUsersRef.orderByChild("divisionId").equalTo(divisionIdToFind).once("value", function(ocdUsersSnapshot){
+                                                    if (ocdUsersSnapshot.numChildren() > 0){
+                                                        ocdUsersSnapshot.forEach(function(snapshotOcd){
+                                                            var ocdUsers = snapshotOcd.child("users/" + uid);
+                                                            ocdUsers.ref.set(true);
+                                                        });
+                                                    }
+                                                    else{
+                                                        var newOcdUsers = ocdUsersRef.push();
+                                                        newOcdUsers.set({divisionId:this.divisionIdToFind});
+                                                        newOcdUsers.child("users/" + uid).set(true);
+                                                    }
+                                                }, {divisionIdToFind:divisionIdToFind});
+                                            }
+                                            // replace user ocds with new ocds
+                                            userOCDRef.set(null);
+                                            for (i in divisionsArray){
+                                                var divisionId = divisionsArray[i];
+                                                var newOcd = userOCDRef.push();
+                                                newOcd.child("divisionId").set(divisionId);
+                                            }
+                                        }
                                     }
                                 }, {index:index});
                             }
@@ -829,8 +855,8 @@ exports.updateNotificationsForUIDWithAddress= function(req, res){
                                 ocdUsersRef.orderByChild("divisionId").equalTo(divisionIdToFind).once("value", function(ocdUsersSnapshot){
                                     if (ocdUsersSnapshot.numChildren() > 0){
                                         ocdUsersSnapshot.forEach(function(snapshotOcd){
-                                            var ocdUsers = snapshotOcd.child("users");
-                                            ocdUsers.child(uid).set(true);
+                                            var ocdUsers = snapshotOcd.child("users/" + uid);
+                                            ocdUsers.ref.set(true);
                                         });
                                     }
                                     else{
