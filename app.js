@@ -74,6 +74,7 @@ app.post('/loadLegislatorForCampaignIdWithDivisionId', speakoutRoutes.loadLegisl
 app.post('/loadActivities', speakoutRoutes.loadActivities);
 app.post('/loadOrganizationsForAddress', speakoutRoutes.loadOrganizationsForAddress);
 app.post('/deleteAccountWithId', speakoutRoutes.deleteAccountWithId);
+app.post('/updateNotificationsForUIDWithAddress', speakoutRoutes.updateNotificationsForUIDWithAddress);
 // app.post('/loadCampaignsForIssue', speakoutRoutes.loadCampaignsForIssue);
 var server = app.listen(process.env.PORT || '8080', function () {
   console.log('App listening on port %s', server.address().port);
@@ -103,6 +104,21 @@ function getDistrictWithLatLong(lat, long, callback){
 function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
+
+// add test notification subscriptions
+// var notificationUserOCDRef = db.ref("notification/userOCD/PhO3l11k6SXQ7PKf9jOf96aJbXC3");
+// var newUserOCD = notificationUserOCDRef.push();
+// newUserOCD.set({divisionId:"ocd-division/country:us"});
+// var notificationOCDUsersRef = db.ref("notification/ocdUsers/");
+// var newOCDUsers = notificationOCDUsersRef.push();
+// newOCDUsers.set({divisionId:"ocd-division/country:us",users:{PhO3l11k6SXQ7PKf9jOf96aJbXC3:true}});
+
+// var notificationUserOCDRef = db.ref("notification/userOCD/PhO3l11k6SXQ7PKf9jOf96aJbXC3");
+// var newUserOCD = notificationUserOCDRef.push();
+// newUserOCD.set({divisionId:"ocd-division/country:us"});
+// var notificationOCDUsersRef = db.ref("notification/ocdUsers/");
+// var newOCDUsers = notificationOCDUsersRef.push();
+// newOCDUsers.set({divisionId:"ocd-division/country:us",users:{PhO3l11k6SXQ7PKf9jOf96aJbXC3:true}});
 
 
 // addDupStoriesToCampaignWithId("-KSWfR6vOhizHMX4YUZ7");
@@ -146,6 +162,8 @@ function getRandomInt(min, max) {
 //         console.log("Successfully sent with response: ", response);
 //     }
 // });
+
+
 
 // var candidatesForEqualityJSON = [
 //   {

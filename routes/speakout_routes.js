@@ -749,6 +749,117 @@ exports.deleteAccountWithId = function(req, res){
     });
 };
 
+
+
+
+
+exports.updateNotificationsForUIDWithAddress= function(req, res){
+    var idToken = req.body.idToken;
+    var uid = req.body.uid;
+    var address = req.body.address;
+    firebase.auth().verifyIdToken(idToken).then(function(decodedToken) {
+        if (uid == decodedToken.uid){
+            getOfficesForAddress(address, function(data){
+                if (data != "error"){
+                    var normalizedAddress = data["normalizedInput"]["line1"] + ", " + data["normalizedInput"]["city"];
+                    var organizationsList = [];
+                    var numberOfDivisionProcessed = 0;
+                    var divisionsArray = [];
+                    for (var i = 0; i < data["offices"].length; i++){
+                        if (divisionsArray.indexOf(data["offices"][i]["divisionId"]) == -1){
+                            divisionsArray.push(data["offices"][i]["divisionId"]);
+                        }
+                    }
+                    // delete user from each of current ocds if exists
+                    var userOCDRef = db.ref("notification/userOCD/" + uid);
+                    userOCDRef.once("value", function(snapshot){
+                        if (snapshot.numChildren() > 0){
+                            var ocdArray = []
+                            for (parsedElement in snapshot.val()){
+                                ocdArray.push(parsedElement);
+                            } 
+                            for (var index = 0; index < ocdArray.length; index++){
+                                var ocd = snapshot.val()[ocdArray[index]];
+                                var ocdString = ocd["divisionId"];
+                                var ocdUsersRef = db.ref("notification/ocdUsers")
+                                ocdUsersRef.orderByChild("divisionId").equalTo(ocdString).once("value", function(ocdUsersSnapshot){
+                                    if (ocdUsersSnapshot.numChildren() > 0){
+                                        ocdUsersSnapshot.forEach(function(snapshotOcd){
+                                            var ocdUsers = snapshotOcd.child("users");
+                                            if (ocdUsers.child(uid).exists()){
+                                                ocdUsers[uid] = null;
+                                            }
+                                            // add user to new ocds
+                                            if (this.index == ocdArray.length - 1){
+                                                for (var i = 0; i < divisionsArray.length; i++){
+                                                    var divisionIdToFind = divisionsArray[i];
+                                                    ocdUsersRef.orderByChild("divisionId").equalTo(divisionIdToFind).once("value", function(ocdUsersSnapshot){
+                                                        if (ocdUsersSnapshot.numChildren() > 0){
+                                                            ocdUsersSnapshot.forEach(function(snapshotOcd){
+                                                                var ocdUsers = snapshotOcd.child("users");
+                                                                ocdUsers.child(uid).set(true);
+                                                            });
+                                                        }
+                                                        else{
+                                                            var newOcdUsers = ocdUsersRef.push();
+                                                            newOcdUsers.set({divisionId:this.divisionIdToFind});
+                                                            newOcdUsers.child("users/" + uid).set(true);
+                                                        }
+                                                    }, {divisionIdToFind:divisionIdToFind});
+                                                }
+                                                // replace user ocds with new ocds
+                                                userOCDRef.set(null);
+                                                for (i in divisionsArray){
+                                                    var divisionId = divisionsArray[i];
+                                                    var newOcd = userOCDRef.push();
+                                                    newOcd.child("divisionId").set(divisionId);
+                                                }
+                                            }
+                                            
+
+                                        });
+                                    }
+                                }, {index:index});
+                            }
+                        }
+                        else{
+                            var ocdUsersRef = db.ref("notification/ocdUsers");
+                            for (var i = 0; i < divisionsArray.length; i++){
+                                var divisionIdToFind = divisionsArray[i];
+                                ocdUsersRef.orderByChild("divisionId").equalTo(divisionIdToFind).once("value", function(ocdUsersSnapshot){
+                                    if (ocdUsersSnapshot.numChildren() > 0){
+                                        ocdUsersSnapshot.forEach(function(snapshotOcd){
+                                            var ocdUsers = snapshotOcd.child("users");
+                                            ocdUsers.child(uid).set(true);
+                                        });
+                                    }
+                                    else{
+                                        var newOcdUsers = ocdUsersRef.push();
+                                        newOcdUsers.set({divisionId:this.divisionIdToFind});
+                                        newOcdUsers.child("users/" + uid).set(true);
+                                    }
+                                }, {divisionIdToFind:divisionIdToFind});
+                            }
+                            for (i in divisionsArray){
+                                var divisionId = divisionsArray[i];
+                                var newOcd = userOCDRef.push();
+                                newOcd.child("divisionId").set(divisionId);
+                            }
+                        }
+                    });
+                }
+                else{
+                    console.log("unable to get offices for address");
+                }
+            });
+        }
+        else{
+            console.log("idToken invalid");
+        }
+    });
+    
+};
+
 function getCandidatesForAddress(address, callback){
   var url = "https://www.googleapis.com/civicinfo/v2/representatives?address=" + address + "&includeOffices=true&fields=offices(divisionId%2Cname%2Croles)%2CnormalizedInput&key=" + googleAPIKey;
     request(url, function(err, res, body) {
