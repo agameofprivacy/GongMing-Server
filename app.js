@@ -105,6 +105,73 @@ function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+// sendNotificationToDivisionId("ocd-division/country:us", {"type":"speakout", "title":"Eddie C., Speakout Against HB2", "body":"Stop Governor McCrory and the General Assemblby's discriminatory legislation harming the transgender community!"});
+
+// sendNotificationToDivisionId("ocd-division/country:us/state:ca", {"type":"speakout", "title":"Eddie C., Speakout Against Prop 8", "body":"Refuse to take a step backward and stand firm for marriage equality!"});
+
+function sendNotificationToDivisionId(divisionId, dictionary){
+  var type = dictionary["type"];
+  var ocdUsersRef = db.ref("notification/ocdUsers")
+  ocdUsersRef.orderByChild("divisionId").equalTo(divisionId).once("value", function(snapshot){
+    if (snapshot.numChildren() > 0){
+      snapshot.forEach(function(ocdUsers){
+        var divisionId = ocdUsers.val()["divisionId"];
+        var users = ocdUsers.val()["users"];
+        var key = ocdUsers.key;
+        console.log("divisionId is " + divisionId + ", key is " + key + ", users are " + users);
+        for (user in users){
+          console.log("user key is " + user);
+          var userInfoRef = db.ref("userInfo/" + user);
+          userInfoRef.once("value", function(userInfoSnapshot){
+            if (userInfoSnapshot.numChildren() > 0){
+              var userInfo = userInfoSnapshot.val();
+              if (userInfo["urgentMatterNotifications"]){
+                // deliver notification
+                if (userInfoSnapshot.hasChild("instanceToken")){
+                  var message = {
+                    to: userInfo["instanceToken"], // required
+                    priority : 'high',
+                    notification: {
+                      title: dictionary["title"],
+                      body: dictionary["body"],
+                      'click-action': "speakout"
+                    },         
+                    data:{
+                      // 'content-available':true,
+                      "category": "speakout"
+                    }
+                };
+                  fcm.send(message, function(err, response){
+                      if (err) {
+                          console.log("Something has gone wrong!");
+                          console.log(err);
+                      } else {
+                          console.log("Successfully sent with response: ", response);
+                      }
+                  });
+
+                }
+                else{
+                  console.log("no instanceToken, user is not logged in");
+                }
+              }
+              else{
+                console.log("user disabled urgent matter notifications")
+              }
+            }
+            else{
+              console.log("no userInfo found for " + user);
+            }
+          });
+        }
+      });
+    }
+    else{
+      console.log("no users registered for the division");
+    }
+  });
+}
+
 // add test notification subscriptions
 // var notificationUserOCDRef = db.ref("notification/userOCD/PhO3l11k6SXQ7PKf9jOf96aJbXC3");
 // var newUserOCD = notificationUserOCDRef.push();
@@ -141,7 +208,7 @@ function getRandomInt(min, max) {
 
 
 // var message = {
-//     to: "foEVrS4d0UA:APA91bHW6QmDo6UBHiIGKr_55nTzV7Ra1H5ly7Q9QgGpe8TbsLRafNBrVhzf3lX4RujTqVPjF_RMsO7xb2L3uxMjVijI-uiE1X6b2K6LoWkTADFshPY2lX0d77uokGhKQcZb683-PwcM", // required
+//     to: "cY8Bj6aT-CQ:APA91bEoRq953cddmNgbIKSOB7WnLGVqc3WVZuETEn0T_niZ6wwYEFUgQjems8z-MM615csHn6jRRQinSu3ES89JkySg-w9hWtG-V0I4VjHG8CylaexATnVuLAgUmkzE8qAy3trnjs11", // required
 //     priority : 'high',
 //     notification: {
 //       title: "Speakout Against HB2",
@@ -149,7 +216,7 @@ function getRandomInt(min, max) {
 //       'click-action': "speakout"
 //     },         
 //     data:{
-//       'content-available':true,
+//       'content-available':false,
 //       "category": "speakout"
 //     }
 // };
