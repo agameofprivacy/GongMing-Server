@@ -105,7 +105,7 @@ function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-// sendNotificationToDivisionId("ocd-division/country:us", {"type":"speakout", "title":"Eddie C., Speakout Against HB2", "body":"Stop Governor McCrory and the General Assemblby's discriminatory legislation harming the transgender community!"});
+// sendNotificationToDivisionId("ocd-division/country:us", {"type":"speakout", "title":"beautifulSoul, Speakout Against HB2", "body":"Stop Governor McCrory and the General Assemblby's discriminatory legislation harming the transgender community!"});
 
 // sendNotificationToDivisionId("ocd-division/country:us/state:ca", {"type":"speakout", "title":"Eddie C., Speakout Against Prop 8", "body":"Refuse to take a step backward and stand firm for marriage equality!"});
 
@@ -172,6 +172,8 @@ function sendNotificationToDivisionId(divisionId, dictionary){
   });
 }
 
+
+
 // add test notification subscriptions
 // var notificationUserOCDRef = db.ref("notification/userOCD/PhO3l11k6SXQ7PKf9jOf96aJbXC3");
 // var newUserOCD = notificationUserOCDRef.push();
@@ -203,8 +205,11 @@ function sendNotificationToDivisionId(divisionId, dictionary){
 
 
 // var legislatorOfficesRef = db.ref("campaign/" + "-KSWfR6vOhizHMX4YUZ7/" + "legislatorOffices");
-// var newLegislatorOffices = legislatorOfficesRef.push()
-// newLegislatorOffices.set("ocd-division/country:us/state:ca/cd:12");
+// for (var i = 1; i<=120; i++){
+//   var newLegislatorOffices = legislatorOfficesRef.push()
+//   newLegislatorOffices.set("ocd-division/country:us/state:nc/sldl:" + i);
+// }
+
 
 
 // var message = {
@@ -241,19 +246,9 @@ function sendNotificationToDivisionId(divisionId, dictionary){
 //     "isLGBT": "FALSE",
 //     "source": "Equality California",
 //     "endorsementURL": "http://www.eqca.org/our-endorsements/"
-//   },
-//   {
-//     "name": "Jared Huffman",
-//     "officeName": "United States House of Representatives CA-2",
-//     "divisionId": "ocd-division/country:us/state:ca/cd:2",
-//     "photoURL": "https://pbs.twimg.com/profile_images/651435990100279296/5lQBk2Ut.png",
-//     "isLGBT": "FALSE",
-//     "source": "Equality California",
-//     "endorsementURL": "http://www.eqca.org/our-endorsements/"
 //   }
 // ]
 
-// Code to add more candidate
 // var candidateRef = db.ref("candidate");
 // for (var candidate in candidatesForEqualityJSON){
 //   var newCandidate = candidateRef.push();
@@ -268,14 +263,6 @@ function sendNotificationToDivisionId(divisionId, dictionary){
 //     "donationURL": "https://netdonor.net/ea-action/action?ea.client.id=1954&ea.campaign.id=44299&ea.tracking.id=or_gnr_hrc_support_donate&_ga=1.240161859.1935039609.1460182471",
 //     "about": "The Human Rights Campaign represents a force of more than 1.5 million members and supporters nationwide. As the largest national lesbian, gay, bisexual, transgender and queer civil rights organization, HRC envisions a world where LGBTQ people are ensured of their basic equal rights, and can be open, honest and safe at home, at work and in the community.",
 //     "logoImageURL": "https://firebasestorage.googleapis.com/v0/b/speakout-9d07b.appspot.com/o/organizations%2FhumanRightsCampaign%2FhumanRightsCampaign.png?alt=media&token=1e655f74-7fa7-44d1-bdac-7fb973fabad0"
-//   },
-//   {
-//     "name": "Equality California",
-//     "divisionId": "ocd-division/country:us/state:ca",
-//     "homeURL": "http://www.eqca.org",
-//     "donationURL": "https://secure.eqca.org/page/contribute/donate",
-//     "about": "Equality California is the nation’s largest statewide lesbian, gay, bisexual and transgender civil rights organization dedicated to creating a fair and just society. Our mission is to achieve and maintain full and lasting equality, acceptance, and social justice for all people in our diverse LGBT communities, inside and outside of California. Our mission includes advancing the health and well-being of LGBT Californians through direct healthcare service advocacy and education. Through electoral, advocacy, education and mobilization programs, we strive to create a broad and diverse alliance of LGBT people, educators, government officials, communities of color and faith, labor, business, and social justice communities to achieve our goals.",
-//     "logoImageURL": "https://firebasestorage.googleapis.com/v0/b/speakout-9d07b.appspot.com/o/organizations%2FequalityCalifornia%2FequalityCalifornia.png?alt=media&token=c62f3559-e06f-4e66-8858-95d5f597d184"
 //   }
 // ]
 

@@ -371,6 +371,10 @@ exports.recordSpeakout = function(req, res){
                                         return res.send({success:true, message:"speakout recorded", shouldPromptForStory:true, divisionId:mostLocalDivisionId, city:city, state:state});
                                     }
                                     else{
+                                        newSpeakout.set({
+                                            "author":uid,
+                                            "date":date
+                                        });
                                         return res.send({success:true, message:"speakout recorded", shouldPromptForStory:false});    
                                     }
                                 });
@@ -551,7 +555,7 @@ exports.getCandidatesForAddress = function(req, res){
                     candidatesRef.orderByChild("divisionId").equalTo(officeOCD).once("value", function(snapshot){
                         if (snapshot.numChildren() > 0) {
                             var candidateCount = 0
-                            for (var i = 0; i < snapshot.numChildren(); i++){
+                            // for (var i = 0; i < snapshot.numChildren(); i++){
                                 var snapshotObject = snapshot.val();
                                 for (var candidateObject in snapshotObject){
                                     var candidate = snapshotObject[candidateObject];
@@ -567,7 +571,7 @@ exports.getCandidatesForAddress = function(req, res){
                                         }
                                     }
                                 }
-                            }
+                            // }
                         }
                         else{
                             numberOfDivisionProcessed++;
@@ -932,7 +936,12 @@ function getLegislatorInfoForCampaignId(campaignId, callback){
 
 function sortCandidatesByOfficeLevel(candidatesList, desc){
     candidatesList.sort(function(a, b){
-        return a.divisionId.length - b.divisionId.length;
+        if (a.divisionId.length != b.divisionId.length){
+            return a.divisionId.length - b.divisionId.length;
+        }
+        else{
+            return a.officeName.length - b.officeName.length;
+        }
     });
     return candidatesList;
 }
