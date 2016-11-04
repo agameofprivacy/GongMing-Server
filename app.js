@@ -24,25 +24,6 @@ firebase.initializeApp({
 var db = firebase.database();
 exports.db = db;
 
-// listen for change in userInfo > uid > currentLatitude, then update congressional district info for said userInfo
-// var userInfoRef = db.ref("userInfo");
-// userInfoRef.on("child_changed", function(snapshot) {
-//   console.log(snapshot.val());
-//   var userInfo = snapshot.val();
-//   var currentLatitude = userInfo["currentLatitude"];
-//   var currentLongitude = userInfo["currentLongitude"];
-//   getDistrictWithLatLong(currentLatitude, currentLongitude, function(data){
-//     if (data != "error"){
-//       snapshot.ref.update({"currentDistrictNumber":data["district"], "currentDistrictState":data["state"]});
-//     }
-//     else{
-//       console.log(data);
-//     }
-//   });
-// }, function (errorObject) {
-//    console.log("The read failed: " + errorObject.code);
-// });
-
 var FirebaseCloudMessaging = require('fcm-push');
 
 var fcmServerKey = 'AIzaSyBsh7o8tjppsPpyUdCmHPYQX2iedL4iPPY';

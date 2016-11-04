@@ -7,7 +7,7 @@ var request = app.request;
 var sunlightAPIKey = app.sunlightAPIKey;
 var googleAPIKey = app.googleAPIKey;
 var clientAPIKey = "UrXi59rCjB7wBMU6hF1l6oTdyfKCzw5C06l7IASEPtKCAMHV8ZQxjeX3BXOwEpa";
-
+var voterGuideAPIKey = "AAMdwzaxZ2erULbrCWTnQq9RQg8n"
 exports.loadLatestActiveCampaignForAddress = function (req, res){
     if (req.body.clientAPIKey == clientAPIKey){
         var address = encodeURIComponent(req.body.address);
@@ -446,7 +446,7 @@ exports.submitStory = function(req, res){
 exports.loadIssuesForAddress = function(req, res){
     if (req.body.clientAPIKey == clientAPIKey){
         var address = encodeURIComponent(req.body.address);
-        getCandidatesForAddress(address, function(data){
+        getCandidatesForAddressGoogle(address, function(data){
             if (data != "error"){
                 var normalizedAddress = data["normalizedInput"]["line1"] + ", " + data["normalizedInput"]["city"];
                 var issuesList = [];
@@ -541,9 +541,14 @@ exports.updateStoryAudioURLForStory = function(req, res){
 };
 
 exports.getCandidatesForAddress = function(req, res){
-    if (req.body.clientAPIKey == clientAPIKey){
+    var origin = req.get('origin');
+    if (origin == "http://www.speakoutapp.co"){
+        res.set("Access-Control-Allow-Origin", origin);
+        res.set("Access-Control-Allow-Credentials", true);
+    }
+    if (req.body.clientAPIKey == clientAPIKey || req.body.clientAPIKey == voterGuideAPIKey){
         var address = encodeURIComponent(req.body.address);
-        getCandidatesForAddress(address, function(data){
+        getCandidatesForAddressGoogle(address, function(data){
             if (data != "error"){
                 var normalizedAddress = data["normalizedInput"]["line1"] + ", " + data["normalizedInput"]["city"];
                 var candidatesList = [];
@@ -890,7 +895,7 @@ exports.updateNotificationsForUIDWithAddress= function(req, res){
     
 };
 
-function getCandidatesForAddress(address, callback){
+function getCandidatesForAddressGoogle(address, callback){
   var url = "https://www.googleapis.com/civicinfo/v2/representatives?address=" + address + "&includeOffices=true&fields=offices(divisionId%2Cname%2Croles)%2CnormalizedInput&key=" + googleAPIKey;
     request(url, function(err, res, body) {
         if (!err && res.statusCode == 200) {
