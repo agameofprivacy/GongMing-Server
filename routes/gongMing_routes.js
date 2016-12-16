@@ -9616,7 +9616,7 @@ exports.getLegislatorsWithLatLon = function(req, res){
     console.log(lat);
     console.log(lon);
     if (webAPIKeySubmitted === webAPIKey){
-      var requestURL = "http://nominatim.openstreetmap.org/reverse?format=json&accept-language=zh-tw&useragent=gongming&lat=" + lat + "&lon=" + lon;
+      var requestURL = "http://nominatim.openstreetmap.org/reverse?format=json&accept-language=zh-tw&email=agameofprivacy@gmail.com&lat=" + lat + "&lon=" + lon;
       console.log(requestURL);
       request(requestURL, function (error, response, body) {
         console.log(response);
