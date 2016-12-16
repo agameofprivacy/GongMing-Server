@@ -28,6 +28,8 @@ var bodyParser = require('body-parser');
 exports.bodyParser = bodyParser;
 var app = express();
 
+app.use(allowCrossDomain);
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended:false}));
 
