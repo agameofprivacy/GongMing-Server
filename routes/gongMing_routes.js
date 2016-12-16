@@ -9607,6 +9607,7 @@ exports.getLegislatorsWithLatLon = function(req, res){
     if (origin == "http://localhost:3000" || origin == "https://xn--rys9hm6im6qpi2bjzp.co/" || origin == "https://www.xn--rys9hm6im6qpi2bjzp.co/"){
         res.set("Access-Control-Allow-Origin", origin);
         res.set("Access-Control-Allow-Credentials", true);
+        console.log("cors set");
     }
     console.log(origin);
     var webAPIKeySubmitted = decodeURIComponent(req.query.webAPIKey);
