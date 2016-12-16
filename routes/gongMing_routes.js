@@ -9609,7 +9609,7 @@ exports.getLegislatorsWithLatLon = function(req, res){
         res.set("Access-Control-Allow-Credentials", true);
     }
     console.log(origin);
-    var webAPIKeySubmitted = decodeURICompoent(req.query.webAPIKey);
+    var webAPIKeySubmitted = decodeURIComponent(req.query.webAPIKey);
     console.log(webAPIKeySubmitted);
     var lat = Number(req.query.lat);
     var lon = Number(req.query.lon);
