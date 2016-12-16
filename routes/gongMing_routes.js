@@ -9656,10 +9656,6 @@ exports.getLegislatorsWithLatLon = function(req, res){
             }
           }
           console.log(proportionalLegislators);
-          if (origin === "http://localhost:3000" || origin === "https://xn--rys9hm6im6qpi2bjzp.co/" || origin === "https://www.xn--rys9hm6im6qpi2bjzp.co/"){
-              res.set("Access-Control-Allow-Origin", origin);
-              res.set("Access-Control-Allow-Credentials", true);
-          }
           res.send({message:"call successful", address:"address", localLegislator:localLegislator, proportionalLegislators:proportionalLegislators, aboriginalLegislators:aboriginalLegislators});
         }
         else{
