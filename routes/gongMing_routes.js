@@ -9607,23 +9607,20 @@ exports.getLegislatorsWithLatLon = function(req, res){
     if (origin == "http://localhost:3000" || origin == "https://xn--rys9hm6im6qpi2bjzp.co" || origin == "https://www.xn--rys9hm6im6qpi2bjzp.co"){
         res.set("Access-Control-Allow-Origin", origin);
         res.set("Access-Control-Allow-Credentials", true);
-        console.log("cors set");
     }
-    console.log(origin);
     var webAPIKeySubmitted = decodeURIComponent(req.query.webAPIKey);
-    console.log(webAPIKeySubmitted);
+
     var lat = Number(req.query.lat);
     var lon = Number(req.query.lon);
-    console.log(lat);
-    console.log(lon);
+
     if (webAPIKeySubmitted === webAPIKey){
       var requestURL = "http://nominatim.openstreetmap.org/reverse?format=json&accept-language=zh-tw&email=agameofprivacy@gmail.com&lat=" + lat + "&lon=" + lon;
-      console.log(requestURL);
+
       request(requestURL, function (error, response, body) {
-        console.log(response);
+
         if (!error && response.statusCode === 200) {
           var address = JSON.parse(body)["address"];
-          console.log(address);
+
           var districtActive;
           for (var constituency in constituencies){
             for (var district in constituencies[constituency]){
@@ -9640,24 +9637,27 @@ exports.getLegislatorsWithLatLon = function(req, res){
           }
           if (typeof districtActive === 'undefined'){
             console.log("找不到與您所在地的行政區，請於下面行政區選單手選，謝謝！");
+            res.send({message:"getLegislatorsWithLatLon unsuccessful"});
           }
-          var districtActiveArray = districtActive.split(',');
-          var localLegislator;
-          var proportionalLegislators = [];
-          var aboriginalLegislators = [];
-          for (var legislator in legislators){
-            if (legislators[legislator].constituency[0] === districtActiveArray[0] && legislators[legislator].constituency[1] === parseInt(districtActiveArray[1]) && typeof legislators[legislator].contacts !== 'undefined'){
-              localLegislator = legislators[legislator];
+          else{
+            var districtActiveArray = districtActive.split(',');
+            var localLegislator;
+            var proportionalLegislators = [];
+            var aboriginalLegislators = [];
+            for (var legislator in legislators){
+              if (legislators[legislator].constituency[0] === districtActiveArray[0] && legislators[legislator].constituency[1] === parseInt(districtActiveArray[1]) && typeof legislators[legislator].contacts !== 'undefined'){
+                localLegislator = legislators[legislator];
+              }
+              if (legislators[legislator].constituency[0] === 'proportional' && typeof legislators[legislator].contacts !== 'undefined'){
+                proportionalLegislators.push(legislators[legislator]);
+              }
+              if (legislators[legislator].constituency[0] === 'aborigine' && typeof legislators[legislator].contacts !== 'undefined'){
+                aboriginalLegislators.push(legislators[legislator]);
+              }
             }
-            if (legislators[legislator].constituency[0] === 'proportional' && typeof legislators[legislator].contacts !== 'undefined'){
-              proportionalLegislators.push(legislators[legislator]);
-            }
-            if (legislators[legislator].constituency[0] === 'aborigine' && typeof legislators[legislator].contacts !== 'undefined'){
-              aboriginalLegislators.push(legislators[legislator]);
-            }
+            console.log(proportionalLegislators);
+            res.send({message:"call successful", address:address, localLegislator:localLegislator, proportionalLegislators:proportionalLegislators, aboriginalLegislators:aboriginalLegislators});
           }
-          console.log(proportionalLegislators);
-          res.send({message:"call successful", address:address, localLegislator:localLegislator, proportionalLegislators:proportionalLegislators, aboriginalLegislators:aboriginalLegislators});
         }
         else{
           console.log("failed to fetch osm data");
