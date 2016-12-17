@@ -9657,7 +9657,7 @@ exports.getLegislatorsWithLatLon = function(req, res){
             }
           }
           console.log(proportionalLegislators);
-          res.send({message:"call successful", address:"address", localLegislator:localLegislator, proportionalLegislators:proportionalLegislators, aboriginalLegislators:aboriginalLegislators});
+          res.send({message:"call successful", address:address, localLegislator:localLegislator, proportionalLegislators:proportionalLegislators, aboriginalLegislators:aboriginalLegislators});
         }
         else{
           console.log("failed to fetch osm data");
